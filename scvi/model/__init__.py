@@ -8,9 +8,11 @@ from ._peakvi import PEAKVI
 from ._scanvi import SCANVI
 from ._scvi import SCVI
 from ._totalvi import TOTALVI
+from ._hybridvi import HYBRIDVI
 
 __all__ = [
     "SCVI",
+    "HYBRIDVI"
     "TOTALVI",
     "LinearSCVI",
     "AUTOZI",

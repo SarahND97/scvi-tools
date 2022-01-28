@@ -4,6 +4,7 @@ from typing import Callable, Iterable, List, Optional
 import torch
 from torch import nn as nn
 from torch.distributions import Normal
+from scvi.distributions import VonMisesFisher
 from torch.nn import ModuleList
 
 from ._utils import one_hot
@@ -11,6 +12,10 @@ from ._utils import one_hot
 
 def reparameterize_gaussian(mu, var):
     return Normal(mu, var.sqrt()).rsample()
+
+# Add reparametrization for von mises distribution
+def reparameterize_vonmises(z_mean, z_var):
+    return VonMisesFisher(z_mean, z_var).rsample()
 
 
 def identity(x):
@@ -195,7 +200,7 @@ class FCLayers(nn.Module):
                         x = layer(x)
         return x
 
-
+# Main encoder
 # Encoder
 class Encoder(nn.Module):
     """
@@ -291,10 +296,14 @@ class Encoder(nn.Module):
         q = self.encoder(x, *cat_list)
         q_m = self.mean_encoder(q)
         q_v = self.var_activation(self.var_encoder(q)) + self.var_eps
-        latent = self.z_transformation(reparameterize_gaussian(q_m, q_v))
+        # need to latent representation in case of hybrid representation
+        if (self.distribution == "hybrid"): 
+            latent = [self.z_transformation(reparameterize_gaussian(q_m, q_v)), self.z_transformation(reparameterize_vonmises(q_m, q_v))]
+        else:
+            latent = self.z_transformation(reparameterize_gaussian(q_m, q_v))
         return q_m, q_v, latent
 
-
+# Main Decoder
 # Decoder
 class DecoderSCVI(nn.Module):
     """

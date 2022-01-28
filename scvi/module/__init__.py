@@ -8,9 +8,11 @@ from ._scanvae import SCANVAE
 from ._totalvae import TOTALVAE
 from ._vae import LDVAE, VAE
 from ._vaec import VAEC
+from ._hybridvae import HYBRIDVAE
 
 __all__ = [
     "VAE",
+    "HYBRIDVAE",
     "LDVAE",
     "TOTALVAE",
     "AutoZIVAE",

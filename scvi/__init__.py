@@ -7,16 +7,19 @@ from ._constants import _CONSTANTS
 from ._settings import settings
 
 # this import needs to come after prior imports to prevent circular import
-from . import data, model, external, utils
+# from . import data, model, external, utils
 
-# https://github.com/python-poetry/poetry/pull/2366#issuecomment-652418094
-# https://github.com/python-poetry/poetry/issues/144#issuecomment-623927302
+# # https://github.com/python-poetry/poetry/pull/2366#issuecomment-652418094
+# # https://github.com/python-poetry/poetry/issues/144#issuecomment-623927302
 try:
     import importlib.metadata as importlib_metadata
 except ModuleNotFoundError:
+# import pkg_resources
     import importlib_metadata
+
 package_name = "scvi-tools"
 __version__ = importlib_metadata.version(package_name)
+#__version__ = pkg_resources.get_distribution(package_name).version
 
 settings.verbosity = logging.INFO
 test_var = "test"

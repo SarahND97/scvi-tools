@@ -18,7 +18,7 @@ def poisson_gene_selection(
     adata,
     layer: Optional[str] = None,
     n_top_genes: int = 4000,
-    use_gpu: bool = True,
+    use_gpu: bool = False,
     subset: bool = False,
     inplace: bool = True,
     n_samples: int = 10000,
