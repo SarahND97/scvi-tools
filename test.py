@@ -1,6 +1,6 @@
 import scanpy as sc
-# import sys
-# sys.path.append("/Users/sarahnarrowedanielsson/Documents/KTH/Exjobb/svci-tools") 
+import sys
+sys.path.append("/Users/sarahnarrowedanielsson/Documents/KTH/Exjobb/svci-tools") 
 # import hybridvi
 import scvi.model as model_
 import scvi
@@ -16,7 +16,6 @@ plt.style.use('seaborn-whitegrid')
 import numpy as np
 
 import pandas as pd
-import matplotlib.colors
 import torch
 from datetime import datetime
 from datetime import date
@@ -82,8 +81,8 @@ datasets =[
 
 list_adata=[]
 for i in range(len(datasets)):
-    # fname = "data/"+datasets[i]+"/filtered_feature_bc_matrix.h5"
-    fname = "/corgi/cellbuster/holmes2020/cellranger/"+datasets[i]+"/outs/filtered_feature_bc_matrix.h5"
+    fname = "data/"+datasets[i]+"/filtered_feature_bc_matrix.h5"
+    # fname = "/corgi/cellbuster/holmes2020/cellranger/"+datasets[i]+"/outs/filtered_feature_bc_matrix.h5"
     adata = sc.read_10x_h5(fname)
     adata.var_names_make_unique()
     adata.obs["dataset"] = datasets[i]
@@ -110,11 +109,25 @@ now = datetime.now()
 # dd/mm/YY
 current_date = today.strftime("%d_%m_%Y")
 current_time = now.strftime("%H_%M")
-name=current_date+current_time
+name = current_date+current_time
+name = "04_02_202212_49"
 
-model = scvi.model.SCVI(adata)
-if (path.exists("saved_model/saved_model/'+name+'hybridvae.model.pkl")):
+model = scvi.model.HYBRIDVI(adata)
+if (path.exists("saved_model/"+name+"hybridvae.model.pkl")):
     model = torch.load('saved_model/'+name+'hybridvae.model.pkl')
 else:
+    model = scvi.model.HYBRIDVI(adata)
     model.train()
     torch.save(model,'saved_model/'+name+'hybridvae.model.pkl')
+latent = model.get_latent_representation()
+adata.obsm["scvi"] = latent
+
+adata.obsm["X_pca"] = latent
+
+plt.figure(figsize=(10,8))
+plt.suptitle("latent space in hybrid-VAE")
+plt.subplot(121)
+plt.hist(latent[:,0], bins =100)
+plt.subplot(122)
+plt.hist(latent[:,1], bins =100)
+plt.show()

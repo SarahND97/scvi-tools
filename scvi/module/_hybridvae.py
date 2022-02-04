@@ -359,7 +359,7 @@ class HYBRIDVAE(BaseModuleClass):
         scale = torch.ones_like(qz_v)
 
         kl_divergence_z_normal = kl(Normal(qz_m, qz_v.sqrt()), Normal(mean, scale)).sum(dim=1)
-        kl_divergence_z_von_mises = kl(VonMisesFisher(qz_m, qz_v), HypersphericalUniform(self.n_latent - 1)) #.mean()
+        kl_divergence_z_von_mises = kl(VonMisesFisher(qz_m, qz_v), HypersphericalUniform(self.n_latent - 1)).mean()
         # kl_divergence_z_von_mises = kl(VonMisesFisher(qz_m, qz_v), VonMisesFisher(qz_m, qz_v))
         kl_divergence_z = kl_divergence_z_normal + kl_divergence_z_von_mises
 
