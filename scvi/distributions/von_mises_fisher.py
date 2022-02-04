@@ -5,7 +5,7 @@ from torch.distributions.kl import register_kl
 from scvi.model._utils import parse_use_gpu_arg
 from typing import Optional, Union
 
-from scvi.ops.ive import ive #, ive_fraction_approx, ive_fraction_approx2
+from scvi.ops.ive import ive, ive_fraction_approx#, ive_fraction_approx2
 
 class HypersphericalUniform(torch.distributions.Distribution):
     support = torch.distributions.constraints.real
@@ -247,8 +247,15 @@ class VonMisesFisher(torch.distributions.Distribution):
         # output = - self.scale * ive_fraction_approx(torch.tensor(self.__m / 2), self.scale)
         # option 3:
         # output = - self.scale * ive_fraction_approx2(torch.tensor(self.__m / 2), self.scale)
-
-        return output.view(*(output.shape[:-1])) + self._log_normalization()
+        # this is where the shape goes wrong 
+        # print("######## output.shape #######", output.shape, output.shape[1], output.shape[0])
+        #if (output.shape != torch.Size([128, 1])):
+        #     output = torch.reshape(output, (128, 1))
+        # print("######## output.shape after resize #######", output.shape, output.shape[1], output.shape[0])
+        # print("######## output.shape after resize #######", *(output.shape[:-1]))
+        # x = x.view(x.size(0), -1)
+        # changed from output.view(*(output.shape[:-1]))
+        return output.view(output.size(0), -1) + self._log_normalization()
 
     def log_prob(self, x):
         return self._log_unnormalized_prob(x) - self._log_normalization()
@@ -256,7 +263,7 @@ class VonMisesFisher(torch.distributions.Distribution):
     def _log_unnormalized_prob(self, x):
         output = self.scale * (self.loc * x).sum(-1, keepdim=True)
 
-        return output.view(*(output.shape[:-1]))
+        return output.view(output.size(0), -1)
 
     def _log_normalization(self):
         output = -(
@@ -264,8 +271,9 @@ class VonMisesFisher(torch.distributions.Distribution):
                 - (self.__m / 2) * math.log(2 * math.pi)
                 - (self.scale + torch.log(ive(self.__m / 2 - 1, self.scale)))
         )
+        # print("######## output.shape _log.normalization #######", output.shape, output.shape[1], output.shape[0])
 
-        return output.view(*(output.shape[:-1]))
+        return output.view(output.size(0), -1)
 
 
 @register_kl(VonMisesFisher, HypersphericalUniform)
