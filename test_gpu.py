@@ -1,0 +1,162 @@
+import scanpy as sc
+import sys
+sys.path.append('/corgi/cellbuster/py')
+import henlab_common
+from pathlib import Path
+import math
+# import hybridvi
+import scvi.model as model_
+import scvi
+# import scvi.module as module
+from os import path
+from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+import anndata
+
+# matplotlib inline
+import matplotlib.pyplot as plt
+plt.style.use('seaborn-whitegrid')
+import numpy as np
+
+import pandas as pd
+import torch
+from datetime import datetime
+from datetime import date
+
+def concatenate_adatas(list_adata):
+    return anndata.AnnData.concatenate(*list_adata,batch_key='batch')
+
+datasets =[
+    "SRR11816791",
+    "SRR11816792"
+]
+
+list_adata=[]
+for i in range(len(datasets)):
+    # fname = "data/"+datasets[i]+"/filtered_feature_bc_matrix.h5"
+    fname = "/corgi/cellbuster/holmes2020/cellranger/"+datasets[i]+"/outs/filtered_feature_bc_matrix.h5"
+    adata = sc.read_10x_h5(fname)
+    adata.var_names_make_unique()
+    adata.obs["dataset"] = datasets[i]
+    adata.obs["tech"] = "v2rna"
+    list_adata.append(adata)
+
+adata_v2 = concatenate_adatas(list_adata)
+
+datasets =[
+    "SRR11827034",
+    "SRR11827035",
+    "SRR11827036",
+    "SRR11827037",
+    #"SRR11827038",  #says missing. hmmmmm would be nice to have!
+    "SRR11827039",
+]
+list_adata=[]
+for i in range(len(datasets)):
+    print(i)
+    fname = "/corgi/cellbuster/holmes2020/cellranger/"+datasets[i]+"/outs/filtered_feature_bc_matrix.h5"
+    adata = sc.read_10x_h5(fname)
+    adata.var_names_make_unique()
+    adata.obs["dataset"] = datasets[i]
+    adata.obs["tech"] = "v2rna"
+    list_adata.append(adata)
+    
+adata_holmes = concatenate_adatas(list_adata)
+
+############################ Stewart data ###########################
+datasets =[
+    "classical",
+    "dn",
+    "HB34",
+    "HB78",
+    "igmmem",
+    "naive",
+    "trans",
+]
+
+list_adata=[]
+for i in range(len(datasets)):
+    print(i)
+    fname = "/corgi/cellbuster/stewart2021/processed/"+datasets[i]+"_filtered_feature_bc_matrix.h5"
+    adata = sc.read_10x_h5(fname)
+    adata.var_names_make_unique()
+    adata.obs["dataset"] = datasets[i]
+    adata.obs["tech"] = "3prime"
+    list_adata.append(adata)
+    
+adata_stewart = concatenate_adatas(list_adata)
+
+list_adata=henlab_common.read_cr(Path("/corgi/cellbuster/bigb"), samplemeta=None)
+adata = concatenate_adatas(list_adata)
+adata = concatenate_adatas(adata_stewart)
+adata = concatenate_adatas(adata_holmes)
+adata = concatenate_adatas(adata_v2)
+
+cellname = [y+"#"+x[0:18] for (x,y) in zip(adata.obs["cellbc"],adata.obs["batchname"])]
+df = pd.read_csv("/corgi/cellbuster/bigb/summary_kmer.csv")
+df.set_axis(['cellbc', 'count','total'], axis=1, inplace=True)
+d = dict(zip(df["cellbc"],df["count"]))
+adata.obs["cnt_telo"] = [d[cn] if cn in d else math.nan for cn in cellname]
+
+d = dict(zip(df["cellbc"],df["total"]))
+adata.obs["cnt_atac"] = [d[cn] if cn in d else math.nan for cn in cellname]
+
+adata = adata[~np.isnan(adata.obs["cnt_telo"]),:]
+
+sc.pp.filter_cells(adata, min_genes=20)  #lower than usual
+sc.pp.filter_genes(adata, min_cells=3)
+
+adata.layers["counts"] = adata.X.copy() # preserve counts
+sc.pp.normalize_total(adata, target_sum=1e4) # here we normalize data 
+sc.pp.log1p(adata)
+adata.raw = adata # freeze the state in `.raw`
+
+scvi.data.setup_anndata(
+    adata,
+    layer="counts"
+)
+
+today = date.today()
+now = datetime.now()
+current_date = today.strftime("%d_%m_%Y")
+current_time = now.strftime("%H_%M")
+name = "_" + current_date + "_" + current_time + "_" 
+# name = "_08_02_2022_14_14_"
+
+model = scvi.model.HYBRIDVI(adata)
+if (path.exists("saved_model/"+name+"hybridvae.model.pkl")):
+    model = torch.load('saved_model/'+name+'hybridvae.model.pkl')
+else:
+    model = scvi.model.HYBRIDVI(adata)
+    model.train()     
+    torch.save(model,'saved_model/'+name+'hybridvae.model.pkl')
+
+latent = model.get_latent_representation()
+adata.obsm["scvi"] = latent
+adata.obsm["X_pca"] = latent
+
+def clustering(latent):
+    sc.pp.neighbors(latent)
+    sc.tl.leiden(latent, key_added = "leiden_1.0")
+
+plt.figure(figsize=(10,8))
+plt.suptitle("latent space in hybrid-VAE, n_latent=2")
+plt.subplot(121)
+plt.hist(latent[:,0], bins =100)
+plt.subplot(122)
+plt.hist(latent[:,1], bins =100)
+fname = "data/latent" + name + ".png"
+plt.savefig(fname)
+# plt.show()
+# clustering(latent)
+
+# import leidenalg
+# import igraph as ig
+# G = ig.Graph.Erdos_Renyi(100, 0.1);
+# For simply finding a partition use:
+# part = leidenalg.find_partition(G, leidenalg.ModularityVertexPartition);
+
+
+
+

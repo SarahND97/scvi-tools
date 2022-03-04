@@ -3,6 +3,7 @@ from typing import Callable, Iterable, List, Optional
 
 import torch
 from torch import nn as nn
+import torch.nn.functional as F
 from torch.distributions import Normal
 from scvi.distributions import VonMisesFisher
 from torch.nn import ModuleList
@@ -15,7 +16,7 @@ def reparameterize_gaussian(mu, var):
 
 # Add reparametrization for von mises distribution
 def reparameterize_vonmises(z_mean, z_var):
-    return VonMisesFisher(z_mean, z_var).rsample()
+    return VonMisesFisher(z_mean, z_var).rsample() #q_z
 
 
 def identity(x):
@@ -142,7 +143,7 @@ class FCLayers(nn.Module):
                     b = layer.bias.register_hook(_hook_fn_zero_out)
                     self.hooks.append(b)
 
-    def forward(self, x: torch.Tensor, *cat_list: int):
+    def forward(self, x: torch.Tensor, *cat_list: int): 
         """
         Forward computation on ``x``.
 
@@ -247,9 +248,12 @@ class Encoder(nn.Module):
         distribution: str = "normal",
         var_eps: float = 1e-4,
         var_activation: Optional[Callable] = None,
+        activation: torch.nn.functional = F.relu,
         **kwargs,
     ):
         super().__init__()
+
+        self.activation = activation
 
         self.distribution = distribution
         self.var_eps = var_eps
@@ -265,10 +269,22 @@ class Encoder(nn.Module):
         self.mean_encoder = nn.Linear(n_hidden, n_output)
         self.var_encoder = nn.Linear(n_hidden, n_output)
 
+        # Might need to change these /Sarah
         if distribution == "ln":
             self.z_transformation = nn.Softmax(dim=-1)
         else:
             self.z_transformation = identity
+
+        if (self.distribution == "hybrid"):
+            # 2 hidden layers encoder
+            self.fc_e0 = nn.Linear(n_input, n_hidden * 2)
+            self.fc_e1 = nn.Linear(n_hidden * 2, n_hidden)
+
+            # compute mean and concentration of the von Mises-Fisher
+            self.fc_mean = nn.Linear(n_hidden, n_output)
+            self.fc_var = nn.Linear(n_hidden, 1)
+           
+    
         self.var_activation = torch.exp if var_activation is None else var_activation
 
     def forward(self, x: torch.Tensor, *cat_list: int):
@@ -298,10 +314,21 @@ class Encoder(nn.Module):
         q_v = self.var_activation(self.var_encoder(q)) + self.var_eps
         # need to latent representation in case of hybrid representation
         if (self.distribution == "hybrid"): 
-            latent = [self.z_transformation(reparameterize_gaussian(q_m, q_v)), self.z_transformation(reparameterize_vonmises(q_m, q_v))]
+            # 2 hidden layers encoder
+            x = self.activation(self.fc_e0(x))
+            x = self.activation(self.fc_e1(x))
+            # compute mean and concentration of the von Mises-Fisher
+            z_mean = self.fc_mean(x)
+            z_mean = z_mean / z_mean.norm(dim=-1, keepdim=True)
+            # the `+ 1` prevent collapsing behaviors
+            z_var = F.softplus(self.fc_var(x)) + 1
+            # latent = self.z_transformation(reparameterize_vonmises(z_mean, z_var))
+            latent = [self.z_transformation(reparameterize_gaussian(q_m, q_v)), self.z_transformation(reparameterize_vonmises(z_mean, z_var))]
+            q_m = [q_m, z_mean]
+            q_v = [q_v, z_var]
         else:
             latent = self.z_transformation(reparameterize_gaussian(q_m, q_v))
-        return q_m, q_v, latent
+        return q_m, q_v, latent # latent = z
 
 # Main Decoder
 # Decoder

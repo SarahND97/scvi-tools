@@ -12,7 +12,7 @@ from scvi import _CONSTANTS
 from scvi._compat import Literal
 from scvi.distributions import NegativeBinomial, ZeroInflatedNegativeBinomial, HypersphericalUniform, VonMisesFisher
 from scvi.module.base import BaseModuleClass, LossRecorder, auto_move_data
-from scvi.nn import DecoderSCVI, Encoder, LinearDecoderSCVI, one_hot
+from scvi.nn import DecoderSCVI, Encoder, one_hot
 from ._vae import VAE
 
 torch.backends.cudnn.benchmark = True
@@ -97,7 +97,7 @@ class HYBRIDVAE(BaseModuleClass):
         dispersion: str = "gene",
         log_variational: bool = True,
         gene_likelihood: str = "zinb",
-        latent_distribution: str = "normal",
+        latent_distribution: str = "hybrid",
         encode_covariates: bool = False,
         deeply_inject_covariates: bool = True,
         use_batch_norm: Literal["encoder", "decoder", "none", "both"] = "both",
@@ -271,21 +271,27 @@ class HYBRIDVAE(BaseModuleClass):
             categorical_input = torch.split(cat_covs, 1, dim=1)
         else:
             categorical_input = tuple()
+        # print("############## len(encoder_input) ###", len(encoder_input))
         qz_m, qz_v, z = self.z_encoder(encoder_input, batch_index, *categorical_input)
+        # TODO: separate qz_m and qz_v and z into two valuables
+        # z = z[0]
+        # print("##########################", len(qz_m), len(qz_v), len(z))
 
         ql_m, ql_v = None, None
         if not self.use_observed_lib_size:
+            print("len(encoder_input) .... ", len(encoder_input))
             ql_m, ql_v, library_encoded = self.l_encoder(
                 encoder_input, batch_index, *categorical_input
             )
             library = library_encoded
 
+        # print("####### HEHEHEHEHEHHE")
         if n_samples > 1:
-            qz_m = qz_m.unsqueeze(0).expand((n_samples, qz_m.size(0), qz_m.size(1)))
-            qz_v = qz_v.unsqueeze(0).expand((n_samples, qz_v.size(0), qz_v.size(1)))
+            qz_m = qz_m[1].unsqueeze(0).expand((n_samples, qz_m[1].size(0), qz_m[1].size(1)))
+            qz_v = qz_v[1].unsqueeze(0).expand((n_samples, qz_v[1].size(0), qz_v[1].size(1)))
             # when z is normal, untran_z == z
             # untran_z = Normal(qz_m, qz_v.sqrt()).sample()
-            untran_z = VonMisesFisher(qz_m, qz_v.sqrt()).sample()
+            untran_z = VonMisesFisher(qz_m[1], qz_v[1].sqrt()).sample()
             z = self.z_encoder.z_transformation(untran_z)
             if self.use_observed_lib_size:
                 library = library.unsqueeze(0).expand(
@@ -348,22 +354,20 @@ class HYBRIDVAE(BaseModuleClass):
     ):
         x = tensors[_CONSTANTS.X_KEY]
         batch_index = tensors[_CONSTANTS.BATCH_KEY]
-
+        # print("####### HOHOHOHOHOHOHO")
         qz_m = inference_outputs["qz_m"]
         qz_v = inference_outputs["qz_v"]
         px_rate = generative_outputs["px_rate"]
         px_r = generative_outputs["px_r"]
         px_dropout = generative_outputs["px_dropout"]
 
-        mean = torch.zeros_like(qz_m)
-        scale = torch.ones_like(qz_v)
+        mean = torch.zeros_like(qz_m[0])
+        scale = torch.ones_like(qz_v[0])
 
-        kl_divergence_z_normal = kl(Normal(qz_m, qz_v.sqrt()), Normal(mean, scale)).sum(dim=1)
-        kl_divergence_z_von_mises = kl(VonMisesFisher(qz_m, qz_v), HypersphericalUniform(self.n_latent - 1)).mean()
+        kl_divergence_z_normal = kl(Normal(qz_m[0], qz_v[0].sqrt()), Normal(mean, scale)).sum(dim=1)
+        kl_divergence_z_von_mises = kl(VonMisesFisher(qz_m[1], qz_v[1]), HypersphericalUniform(self.n_latent - 1)).mean()
         # kl_divergence_z_von_mises = kl(VonMisesFisher(qz_m, qz_v), VonMisesFisher(qz_m, qz_v))
-        kl_divergence_z = kl_divergence_z_normal + kl_divergence_z_von_mises
-
-        # borde jag ändra något här? 
+        kl_divergence_z = kl_divergence_z_von_mises + kl_divergence_z_normal
         if not self.use_observed_lib_size:
             ql_m = inference_outputs["ql_m"]
             ql_v = inference_outputs["ql_v"]
@@ -376,6 +380,8 @@ class HYBRIDVAE(BaseModuleClass):
                 Normal(ql_m, ql_v.sqrt()),
                 Normal(local_library_log_means, local_library_log_vars.sqrt()),
             ).sum(dim=1)
+            # kl_divergence_l_von_mises = kl(VonMisesFisher(ql_m, ql_v), HypersphericalUniform(self.n_latent - 1)).mean()
+            # kl_divergence_l = kl_divergence_l_von_mises + kl_divergence_l_normal
         else:
             kl_divergence_l = 0.0
 
@@ -431,8 +437,6 @@ class HYBRIDVAE(BaseModuleClass):
         px_rate = generative_outputs["px_rate"]
         px_dropout = generative_outputs["px_dropout"]
 
-        # What does this mean?? 
-        print("cell_likelihood: ", self.gene_likelihood)
         if self.gene_likelihood == "poisson":
             l_train = px_rate
             l_train = torch.clamp(l_train, max=1e8)
@@ -484,7 +488,6 @@ class HYBRIDVAE(BaseModuleClass):
         batch_index = tensors[_CONSTANTS.BATCH_KEY]
 
         to_sum = torch.zeros(sample_batch.size()[0], n_mc_samples)
-
         for i in range(n_mc_samples):
             # Distribution parameters and sampled variables
             inference_outputs, _, losses = self.forward(tensors)

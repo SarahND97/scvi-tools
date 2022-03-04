@@ -77,12 +77,12 @@ class HYBRIDVI(
         self,
         adata: AnnData,
         n_hidden: int = 128,
-        n_latent: int = 10,
+        n_latent: int = 2, # test on 2 latent spaces, 10 dimensions? 
         n_layers: int = 1,
         dropout_rate: float = 0.1,
         dispersion: Literal["gene", "gene-batch", "gene-label", "gene-cell"] = "gene",
         gene_likelihood: Literal["zinb", "nb", "poisson"] = "zinb",
-        latent_distribution: Literal["normal", "ln"] = "normal",
+        latent_distribution: Literal["normal", "ln", "hybrid"] = "hybrid",
         **model_kwargs,
     ):
         super(HYBRIDVI, self).__init__(adata)
