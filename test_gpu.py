@@ -1,20 +1,12 @@
 import scanpy as sc
-import sys
-sys.path.append('/corgi/cellbuster/py')
-import henlab_common
 from pathlib import Path
 import math
-# import hybridvi
-import scvi.model as model_
 import scvi
-# import scvi.module as module
 from os import path
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 import anndata
-
-# matplotlib inline
 import matplotlib.pyplot as plt
 plt.style.use('seaborn-whitegrid')
 import numpy as np
@@ -23,6 +15,80 @@ import pandas as pd
 import torch
 from datetime import datetime
 from datetime import date
+
+def read_one_trust4(adata: anndata.AnnData, basedir: Path, batch: str):
+    file_t4 = basedir / "trust4" / batch / "TRUST_possorted_genome_bam_barcode_report.tsv"
+    if not file_t4.exists():
+        file_t4 = basedir / "trust4" / batch / "TRUST_gex_possorted_bam_barcode_report.tsv"
+
+    if file_t4.exists():
+        print("Found trust4 data: "+str(file_t4))
+        # Carry over the cell types. Fill with "" if unknown
+        df = pd.read_csv(file_t4,sep="\t")
+        d = dict(zip(df["#barcode"], df["cell_type"]))
+        adata.obs["trust4_celltype"] = [d[cellid] if cellid in d else "" for cellid in adata.obs["cellbc"]]
+        return adata
+    else:
+        return adata
+
+def read_cr(basedir: Path, samplemeta: pd.DataFrame, list_samples=None):
+
+    # Read donor info
+    donor_file = basedir / "all_matched_donor_ids.tsv"
+    if donor_file.exists():
+        print("Found donor information")
+        di = pd.read_csv(donor_file)
+    else:
+        di = None
+
+    # Type of data?
+    if (basedir / "cellranger").is_dir():
+        cr_dir = (basedir / "cellranger")
+    elif (basedir / "cellranger-arc").is_dir():
+        cr_dir = (basedir / "cellranger-arc")
+    else:
+        raise "Unknown cellranger dir"
+
+    # Loop over 10x wells
+    if list_samples is None:
+        list_samples = [f for f in cr_dir.iterdir() if f.is_dir()]
+    list_adata=[]
+    for cursamp in list_samples:
+        batch=cursamp.name
+        print(batch)
+
+        # Load the count matrix for this sample
+        adata = sc.read_10x_h5(cursamp / "outs/filtered_feature_bc_matrix.h5")
+        adata.var_names_make_unique()
+        adata.obs["batchname"] = batch
+
+        # These fields are referenced elsewhere. Putting them here keeps them safe
+        adata.obs["batchname"] = batch
+        adata.obs["cellbc"] = adata.obs.index
+
+        # Extract donor information for this sample
+        if not di is None:
+            di_sub=di[di["batch"]==batch]
+            map_cell2donor = dict(zip(di_sub["cell"],di_sub["donor_id"]))
+            map_cell2prob_doublet = dict(zip(di_sub["cell"],di_sub["prob_doublet"]))
+            adata.obs["donor"] = [map_cell2donor[c] for c in adata.obs.index]
+            adata.obs["prob_doublet"] = [map_cell2prob_doublet[c] for c in adata.obs.index]
+
+        # Add per-well metadata
+        if not samplemeta is None:
+            one_samplemeta = samplemeta[samplemeta["batch"]==batch].to_dict(orient="list")
+            for key,value in one_samplemeta.items():
+                adata.obs[key]=value[0]
+
+        # Add trust4 data
+        adata = read_one_trust4(adata, basedir, batch)
+
+        # Add to the collection
+        list_adata.append(adata)
+
+    return list_adata
+
+
 
 def concatenate_adatas(list_adata):
     return anndata.AnnData.concatenate(*list_adata,batch_key='batch')

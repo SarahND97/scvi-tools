@@ -83,8 +83,8 @@ def concatenate_adatas(list_adata):
     return anndata.AnnData.concatenate(*list_adata,batch_key='batch')
 
 datasets =[
-    "SRR11816791",
-    #"SRR11816792"
+    #"SRR11816791",
+    "SRR11816792"
 ]
 
 # /corgi/cellbuster/holmes2020/cellranger/"+datasets[i]+"/outs/filtered_feature_bc_matrix.h5
@@ -118,7 +118,7 @@ today = date.today()
 now = datetime.now()
 current_date = today.strftime("%d_%m_%Y")
 current_time = now.strftime("%H_%M")
-name = "_" + current_date + "_" + current_time + "_" + "only_sperical" + "_"
+# name = "_" + current_date + "_" + current_time + "_"
 name = "_04_03_2022_09_49_" + "only_sperical" + "_"
 
 model = scvi.model.HYBRIDVI(adata)
@@ -130,10 +130,10 @@ else:
     torch.save(model,'saved_model/'+name+'hybridvae.model.pkl')
 
 latent = model.get_latent_representation()
-print(latent.shape)
-print(latent[0].shape)
-# adata.obsm["scvi"] = latent[0].T + latent[1].T
-adata.obsm["X_pca"] = latent
+# print(latent.shape)
+# print(latent[0].shape)
+
+# adata.obsm["X_pca"] = latent
 
 # plt.figure(figsize=(10,8))
 # plt.suptitle("latent space in hybrid-VAE, n_latent=2")
@@ -143,15 +143,23 @@ adata.obsm["X_pca"] = latent
 # plt.hist(latent[:,1], bins =100)
 # plt.show()
 # sc.tl.pca(adata)
-# sc.pp.neighbors(adata)
-# sc.tl.leiden(adata)
-# sc.tl.umap(adata)
+# sc.pp.neighbors(adata, n_neighbors=10, n_pcs=40)
 # sc.tl.leiden(adata, resolution=2)
-# sc.pl.umap(adata, size=120)
+# sc.tl.umap(adata)
+# sc.pl.umap(adata, color = ["leiden"])
+#sc.tl.pca(latent)
+adata.obsm["X_scVI"] = latent
+sc.pp.neighbors(adata, use_rep="X_scVI", n_neighbors=20)
+sc.tl.umap(adata, min_dist=0.3)
+sc.tl.leiden(adata, key_added="leiden_hybridVI", resolution=0.8)
+sc.pl.umap(adata, color=["leiden_hybridVI"])
+# sc.pp.neighbors(latent, n_neighbors=10, n_pcs=40)
+# sc.tl.leiden(latent, resolution=2)
+# sc.tl.umap(latent)
+# sc.pl.umap(latent, color = ["leiden"])
 
 def show_tSNE(tsne, name):
-
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(8, 8))
     plt.scatter(tsne[:, 0], tsne[:, 1])    
 
     plt.axis("off")
@@ -159,33 +167,39 @@ def show_tSNE(tsne, name):
     plt.show()
 
 # tsne = TSNE().fit_transform(latent)
-#show_tSNE(tsne, "hybrid-scVI")
+# show_tSNE(tsne, "hybrid-scVI")
 #print(tsne[:, 0], tsne[:, 1])
 # original paper uses k-means clustering 
-sc.pp.neighbors(adata, n_neighbors=10, n_pcs=40)
-sc.tl.leiden(adata, resolution=2)
-sc.pl.umap(adata,color=["leiden","cellcycle","batchname",
-                        "donor","trust4_celltype"],ncols=2,legend_loc="on data")
+# sc.pp.neighbors(adata, n_neighbors=5, n_pcs=10)
+# sc.tl.leiden(adata, resolution=2)
+# sc.pl.umap(adata,color=["leiden","cellcycle","batchname",
+#                         "donor","trust4_celltype"],ncols=2,legend_loc="on data")
+# import leidenalg
+# import igraph as ig
+# edgelist = zip(list(latent[0]), list(latent[1]))
+# graph = ig.Graph(edgelist)
+# partition = leidenalg.find_partition(latent, leidenalg.ModularityVertexPartition)
+# print(partition)
 
-def clustering(K):
-    # reduced_data = PCA(n_components=2).fit_transform(data)
-    reduced_data = adata.obsm["X_pca"] 
-    # reduced_data = PCA(2).fit_transform(reduced_data)
-    # print(reduced_data)
-    print(reduced_data.shape)
-    # print(latent_space.shape)
-    kmeans = KMeans(n_clusters=K, n_init=200) # .fit(latent_space)
-    labels = kmeans.fit_predict(reduced_data)
-    # np.where(labels_array == clustNum)[0]
-    # print(np.where(labels==0)[0])
+# def clustering(K):
+#     # reduced_data = PCA(n_components=2).fit_transform(data)
+#     reduced_data = adata.obsm["X_pca"] 
+#     # reduced_data = PCA(2).fit_transform(reduced_data)
+#     # print(reduced_data)
+#     print(reduced_data.shape)
+#     # print(latent_space.shape)
+#     kmeans = KMeans(n_clusters=K, n_init=200) # .fit(latent_space)
+#     labels = kmeans.fit_predict(reduced_data)
+#     # np.where(labels_array == clustNum)[0]
+#     # print(np.where(labels==0)[0])
 
-    print(labels)
-    u_labels = np.unique(labels)
-    # Plotting the results:
-    for i in u_labels:
-        plt.scatter(reduced_data[labels == i , 0] , reduced_data[labels == i , 1] , label = i)
-    plt.legend()
-    plt.show()
+#     print(labels)
+#     u_labels = np.unique(labels)
+#     # Plotting the results:
+#     for i in u_labels:
+#         plt.scatter(reduced_data[labels == i , 0] , reduced_data[labels == i , 1] , label = i)
+#     plt.legend()
+#     plt.show()
 
 # vill se vilken gen som är i vilket kluster
 # för imorgon 

@@ -214,6 +214,7 @@ class HYBRIDVAE(BaseModuleClass):
 
     def _get_generative_input(self, tensors, inference_outputs):
         z = inference_outputs["z"]
+        z = z[0] + z[1]      
         library = inference_outputs["library"]
         batch_index = tensors[_CONSTANTS.BATCH_KEY]
         y = tensors[_CONSTANTS.LABELS_KEY]

@@ -174,6 +174,9 @@ class VAEMixin:
                     z = z.mean(dim=0)
                 else:
                     z = qz_m
-
-            latent += [z.cpu()]
+            #print("z.shape", len(z), len(z[0]), len(z[1]))
+            latent += [z[0].cpu() + z[1].cpu()]
+            #print("latent.shape loop", len(latent))
+        #print("latent.shape", len(latent), len(latent[0]), len(latent[1]))
+        #print("torch.cat(latent).numpy()", torch.cat(latent).numpy().shape)
         return torch.cat(latent).numpy()
