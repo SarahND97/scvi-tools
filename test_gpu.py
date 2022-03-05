@@ -161,16 +161,7 @@ list_adata = [adata_cellbuster, adata_stewart, adata_holmes, adata_v2]
 adata = concatenate_adatas(list_adata)
 print("concatenated adatas")
 
-cellname = [y+"#"+x[0:18] for (x,y) in zip(adata.obs["cellbc"],adata.obs["batchname"])]
-df = pd.read_csv("/corgi/cellbuster/bigb/summary_kmer.csv")
-df.set_axis(['cellbc', 'count','total'], axis=1, inplace=True)
-d = dict(zip(df["cellbc"],df["count"]))
-adata.obs["cnt_telo"] = [d[cn] if cn in d else math.nan for cn in cellname]
-
-d = dict(zip(df["cellbc"],df["total"]))
-adata.obs["cnt_atac"] = [d[cn] if cn in d else math.nan for cn in cellname]
-
-adata = adata[~np.isnan(adata.obs["cnt_telo"]),:]
+# Might need to add telomers 
 
 sc.pp.filter_cells(adata, min_genes=20)  #lower than usual
 sc.pp.filter_genes(adata, min_cells=3)
