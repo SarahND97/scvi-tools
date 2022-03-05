@@ -171,6 +171,8 @@ sc.pp.normalize_total(adata, target_sum=1e4) # here we normalize data
 sc.pp.log1p(adata)
 adata.raw = adata # freeze the state in `.raw`
 
+import sys
+sys.path.append("/corgi/SarahND/svci-tools") 
 scvi.data.setup_anndata(
     adata,
     layer="counts"
