@@ -154,6 +154,7 @@ for i in range(len(datasets)):
 adata_stewart = concatenate_adatas(list_adata)
 
 list_adata=read_cr(Path("/corgi/cellbuster/bigb"), samplemeta=None)
+print("about to concatenate adatas")
 adata = concatenate_adatas(list_adata)
 adata = concatenate_adatas(adata_stewart)
 adata = concatenate_adatas(adata_holmes)
