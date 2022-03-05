@@ -154,11 +154,11 @@ for i in range(len(datasets)):
 adata_stewart = concatenate_adatas(list_adata)
 
 list_adata=read_cr(Path("/corgi/cellbuster/bigb"), samplemeta=None)
+
+adata_cellbuster = concatenate_adatas(list_adata)
 print("about to concatenate adatas")
+list_adata = [adata_cellbuster, adata_stewart, adata_holmes, adata_v2]
 adata = concatenate_adatas(list_adata)
-adata = concatenate_adatas(adata_stewart)
-adata = concatenate_adatas(adata_holmes)
-adata = concatenate_adatas(adata_v2)
 print("concatenated adatas")
 
 cellname = [y+"#"+x[0:18] for (x,y) in zip(adata.obs["cellbc"],adata.obs["batchname"])]
