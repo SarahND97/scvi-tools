@@ -158,6 +158,7 @@ adata = concatenate_adatas(list_adata)
 adata = concatenate_adatas(adata_stewart)
 adata = concatenate_adatas(adata_holmes)
 adata = concatenate_adatas(adata_v2)
+print("concatenated adatas")
 
 cellname = [y+"#"+x[0:18] for (x,y) in zip(adata.obs["cellbc"],adata.obs["batchname"])]
 df = pd.read_csv("/corgi/cellbuster/bigb/summary_kmer.csv")
