@@ -126,6 +126,7 @@ class VAEMixin:
         give_mean: bool = True,
         mc_samples: int = 5000,
         batch_size: Optional[int] = None,
+        hybrid: bool = False,
     ) -> np.ndarray:
         r"""
         Return the latent representation for each cell.
@@ -165,6 +166,9 @@ class VAEMixin:
             qz_m = outputs["qz_m"]
             qz_v = outputs["qz_v"]
             z = outputs["z"]
+            if (hybrid):
+                qz_m = torch.cat((qz_m[0], qz_m[1]), dim=-1)
+                qz_v = torch.cat((qz_v[0], qz_v[1]), dim=-1)
 
             if give_mean:
                 # does each model need to have this latent distribution param?
@@ -175,7 +179,12 @@ class VAEMixin:
                 else:
                     z = qz_m
             #print("z.shape", len(z), len(z[0]), len(z[1]))
-            latent += [z[0].cpu() + z[1].cpu()]
+            # latent += [z[0].cpu() + z[1].cpu()]
+            if (hybrid):
+                latent += [z]
+            else:
+                latent += [z.cpu()]
+
             #print("latent.shape loop", len(latent))
         #print("latent.shape", len(latent), len(latent[0]), len(latent[1]))
         #print("torch.cat(latent).numpy()", torch.cat(latent).numpy().shape)

@@ -322,8 +322,10 @@ class Encoder(nn.Module):
             z_mean = z_mean / z_mean.norm(dim=-1, keepdim=True)
             # the `+ 1` prevent collapsing behaviors
             z_var = F.softplus(self.fc_var(x)) + 1
-            # latent = self.z_transformation(reparameterize_vonmises(z_mean, z_var))
-            latent = [self.z_transformation(reparameterize_gaussian(q_m, q_v)), self.z_transformation(reparameterize_vonmises(z_mean, z_var))]
+            latent_normal = self.z_transformation(reparameterize_gaussian(q_m, q_v))
+            latent_von_mises =  self.z_transformation(reparameterize_vonmises(z_mean, z_var))
+            latent = torch.cat((latent_normal, latent_von_mises), dim=-1)
+            # latent = [self.z_transformation(reparameterize_gaussian(q_m, q_v)), self.z_transformation(reparameterize_vonmises(z_mean, z_var))]
             q_m = [q_m, z_mean]
             q_v = [q_v, z_var]
         else:
@@ -374,6 +376,7 @@ class DecoderSCVI(nn.Module):
         use_layer_norm: bool = False,
     ):
         super().__init__()
+        # Expected Frequency
         self.px_decoder = FCLayers(
             n_in=n_input,
             n_out=n_hidden,
@@ -386,6 +389,7 @@ class DecoderSCVI(nn.Module):
             use_layer_norm=use_layer_norm,
         )
 
+        # Cell-specific scaling
         # mean gamma
         self.px_scale_decoder = nn.Sequential(
             nn.Linear(n_hidden, n_output),
@@ -395,7 +399,7 @@ class DecoderSCVI(nn.Module):
         # dispersion: here we only deal with gene-cell dispersion case
         self.px_r_decoder = nn.Linear(n_hidden, n_output)
 
-        # dropout
+        # Expected dropout
         self.px_dropout_decoder = nn.Linear(n_hidden, n_output)
 
     def forward(
@@ -1043,3 +1047,123 @@ class EncoderTOTALVI(nn.Module):
         untran_latent["l"] = log_library_gene
 
         return qz_m, qz_v, ql_m, ql_v, latent, untran_latent
+
+
+# Main encoder
+# Encoder
+class EncoderHYBRIDVI(nn.Module):
+    """
+    Encodes data of ``n_input`` dimensions into a latent space of ``n_output`` dimensions.
+
+    Uses a fully-connected neural network of ``n_hidden`` layers.
+
+    Parameters
+    ----------
+    n_input
+        The dimensionality of the input (data space)
+    n_output
+        The dimensionality of the output (latent space)
+    n_cat_list
+        A list containing the number of categories
+        for each category of interest. Each category will be
+        included using a one-hot encoding
+    n_layers
+        The number of fully-connected hidden layers
+    n_hidden
+        The number of nodes per hidden layer
+    dropout_rate
+        Dropout rate to apply to each of the hidden layers
+    distribution
+        Distribution of z
+    var_eps
+        Minimum value for the variance;
+        used for numerical stability
+    var_activation
+        Callable used to ensure positivity of the variance.
+        When `None`, defaults to `torch.exp`.
+    **kwargs
+        Keyword args for :class:`~scvi.module._base.FCLayers`
+    """
+
+    def __init__(
+        self,
+        n_input: int,
+        n_output: int,
+        n_cat_list: Iterable[int] = None,
+        n_layers: int = 1,
+        n_hidden: int = 128,
+        dropout_rate: float = 0.1,
+        distribution: str = "normal",
+        var_eps: float = 1e-4,
+        var_activation: Optional[Callable] = None,
+        activation: torch.nn.functional = F.relu,
+        **kwargs,
+    ):
+        super().__init__()
+
+        self.activation = activation
+
+        self.distribution = distribution
+        self.var_eps = var_eps
+        self.encoder = FCLayers(
+            n_in=n_input,
+            n_out=n_hidden,
+            n_cat_list=n_cat_list,
+            n_layers=n_layers,
+            n_hidden=n_hidden,
+            dropout_rate=dropout_rate,
+            **kwargs,
+        )
+        self.mean_encoder = nn.Linear(n_hidden, n_output)
+        self.var_encoder = nn.Linear(n_hidden, n_output)
+        self.z_transformation = identity
+
+        self.fc_e0 = nn.Linear(n_input, n_hidden * 2)
+        self.fc_e1 = nn.Linear(n_hidden * 2, n_hidden)
+
+        # compute mean and concentration of the von Mises-Fisher
+        self.fc_mean = nn.Linear(n_hidden, n_output)
+        self.fc_var = nn.Linear(n_hidden, 1)
+           
+        self.var_activation = torch.exp if var_activation is None else var_activation
+
+    def forward(self, x: torch.Tensor, *cat_list: int):
+        r"""
+        The forward computation for a single sample.
+
+         #. Encodes the data into latent space using the encoder network
+         #. Generates a mean \\( q_m \\) and variance \\( q_v \\)
+         #. Samples a new value from an i.i.d. multivariate normal \\( \\sim Ne(q_m, \\mathbf{I}q_v) \\)
+
+        Parameters
+        ----------
+        x
+            tensor with shape (n_input,)
+        cat_list
+            list of category membership(s) for this sample
+
+        Returns
+        -------
+        3-tuple of :py:class:`torch.Tensor`
+            tensors of shape ``(n_latent,)`` for mean and var, and sample
+
+        """
+        if (self.distribution == "von_mises"): 
+            # 2 hidden layers encoder
+            x = self.activation(self.fc_e0(x))
+            x = self.activation(self.fc_e1(x))
+            # compute mean and concentration of the von Mises-Fisher
+            z_mean = self.fc_mean(x)
+            z_mean = z_mean / z_mean.norm(dim=-1, keepdim=True)
+            # the `+ 1` prevent collapsing behaviors
+            z_var = F.softplus(self.fc_var(x)) + 1
+            latent =  self.z_transformation(reparameterize_vonmises(z_mean, z_var))
+            q_m = z_mean
+            q_v = z_var
+        else:
+            # Parameters for latent distribution
+            q = self.encoder(x, *cat_list)
+            q_m = self.mean_encoder(q)
+            q_v = self.var_activation(self.var_encoder(q)) + self.var_eps
+            latent = self.z_transformation(reparameterize_gaussian(q_m, q_v))
+        return q_m, q_v, latent # latent = z

@@ -11,6 +11,7 @@ class UnsupervisedTrainingMixin:
 
     def train(
         self,
+        lr: float,
         max_epochs: Optional[int] = None,
         use_gpu: Optional[Union[str, int, bool]] = None,
         train_size: float = 0.9,
@@ -60,7 +61,7 @@ class UnsupervisedTrainingMixin:
             batch_size=batch_size,
             use_gpu=use_gpu,
         )
-        training_plan = TrainingPlan(self.module, **plan_kwargs)
+        training_plan = TrainingPlan(self.module, lr=lr, **plan_kwargs)
 
         es = "early_stopping"
         trainer_kwargs[es] = (

@@ -1,11 +1,11 @@
 import scanpy as sc
 from pathlib import Path
-import math
-import scvi
+from scvi import data
+from scvi import model
 from os import path
-from sklearn.manifold import TSNE
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
+# from sklearn.manifold import TSNE
+# from sklearn.cluster import KMeans
+# from sklearn.decomposition import PCA
 import anndata
 import matplotlib.pyplot as plt
 plt.style.use('seaborn-whitegrid')
@@ -87,8 +87,6 @@ def read_cr(basedir: Path, samplemeta: pd.DataFrame, list_samples=None):
         list_adata.append(adata)
 
     return list_adata
-
-
 
 def concatenate_adatas(list_adata):
     return anndata.AnnData.concatenate(*list_adata,batch_key='batch')
@@ -173,7 +171,7 @@ adata.raw = adata # freeze the state in `.raw`
 
 import sys
 sys.path.append("/corgi/SarahND/svci-tools") 
-scvi.data.setup_anndata(
+data.setup_anndata(
     adata,
     layer="counts"
 )
@@ -185,15 +183,15 @@ current_time = now.strftime("%H_%M")
 name = "_" + current_date + "_" + current_time + "_" 
 # name = "_08_02_2022_14_14_"
 
-model = scvi.model.HYBRIDVI(adata)
+model_ = model.HYBRIDVI(adata)
 if (path.exists("saved_model/"+name+"hybridvae.model.pkl")):
     model = torch.load('saved_model/'+name+'hybridvae.model.pkl')
 else:
-    model = scvi.model.HYBRIDVI(adata)
-    model.train()     
-    torch.save(model,'saved_model/'+name+'hybridvae.model.pkl')
+    model_ = model.HYBRIDVI(adata)
+    model_.train()     
+    torch.save(model_,'saved_model/'+name+'hybridvae.model.pkl')
 
-latent = model.get_latent_representation()
+latent = model_.get_latent_representation()
 adata.obsm["scvi"] = latent
 adata.obsm["X_pca"] = latent
 

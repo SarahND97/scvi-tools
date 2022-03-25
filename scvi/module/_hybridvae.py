@@ -12,8 +12,7 @@ from scvi import _CONSTANTS
 from scvi._compat import Literal
 from scvi.distributions import NegativeBinomial, ZeroInflatedNegativeBinomial, HypersphericalUniform, VonMisesFisher
 from scvi.module.base import BaseModuleClass, LossRecorder, auto_move_data
-from scvi.nn import DecoderSCVI, Encoder, one_hot
-from ._vae import VAE
+from scvi.nn import DecoderSCVI, Encoder, EncoderHYBRIDVI, one_hot
 
 torch.backends.cudnn.benchmark = True
 
@@ -85,6 +84,7 @@ class HYBRIDVAE(BaseModuleClass):
 
     def __init__(
         self,
+        gene_indexes: Iterable[int],
         n_input: int,
         n_batch: int = 0,
         n_labels: int = 0,
@@ -117,6 +117,7 @@ class HYBRIDVAE(BaseModuleClass):
         self.n_labels = n_labels
         self.latent_distribution = latent_distribution
         self.encode_covariates = encode_covariates
+        self.gene_indexes = gene_indexes
 
         self.use_observed_lib_size = use_observed_lib_size
         if not self.use_observed_lib_size:
@@ -156,22 +157,41 @@ class HYBRIDVAE(BaseModuleClass):
         # z encoder goes from the n_input-dimensional data to an n_latent-d
         # latent space representation
         n_input_encoder = n_input + n_continuous_cov * encode_covariates
+        n_input_encoder_normal = (n_input - len(self.gene_indexes)) + n_continuous_cov * encode_covariates
+        n_input_encoder_von_mises =  len(self.gene_indexes) + n_continuous_cov * encode_covariates
         cat_list = [n_batch] + list([] if n_cats_per_cov is None else n_cats_per_cov)
         encoder_cat_list = cat_list if encode_covariates else None
-        self.z_encoder = Encoder(
-            n_input_encoder,
+        
+        # print("len(n_input_encoder) .... ### ", encoder_cat_list)
+        self.z_encoder_normal = EncoderHYBRIDVI(
+            n_input_encoder_normal,
             n_latent,
             n_cat_list=encoder_cat_list,
             n_layers=n_layers,
             n_hidden=n_hidden,
             dropout_rate=dropout_rate,
-            distribution=latent_distribution,
+            distribution="normal",
+            inject_covariates=deeply_inject_covariates,
+            use_batch_norm=use_batch_norm_encoder,
+            use_layer_norm=use_layer_norm_encoder,
+            var_activation=var_activation,
+        )
+
+        self.z_encoder_von_mises = EncoderHYBRIDVI(
+            n_input_encoder_von_mises,
+            n_latent,
+            n_cat_list=encoder_cat_list,
+            n_layers=n_layers,
+            n_hidden=n_hidden,
+            dropout_rate=dropout_rate,
+            distribution="von_mises",
             inject_covariates=deeply_inject_covariates,
             use_batch_norm=use_batch_norm_encoder,
             use_layer_norm=use_layer_norm_encoder,
             var_activation=var_activation,
         )
         # l encoder goes from n_input-dimensional data to 1-d library size
+        # print("len(n_input_encoder) .... ", encoder_cat_list)
         self.l_encoder = Encoder(
             n_input_encoder,
             1,
@@ -185,7 +205,8 @@ class HYBRIDVAE(BaseModuleClass):
             var_activation=var_activation,
         )
         # decoder goes from n_latent-dimensional space to n_input-d data
-        n_input_decoder = n_latent + n_continuous_cov
+        n_input_decoder = 2*n_latent + n_continuous_cov
+        # print("len(n_input_decoder) .... ", len(n_input_encoder))
         self.decoder = DecoderSCVI(
             n_input_decoder,
             n_input,
@@ -213,8 +234,7 @@ class HYBRIDVAE(BaseModuleClass):
         return input_dict
 
     def _get_generative_input(self, tensors, inference_outputs):
-        z = inference_outputs["z"]
-        z = z[0] + z[1]      
+        z = inference_outputs["z"]    
         library = inference_outputs["library"]
         batch_index = tensors[_CONSTANTS.BATCH_KEY]
         y = tensors[_CONSTANTS.LABELS_KEY]
@@ -258,7 +278,7 @@ class HYBRIDVAE(BaseModuleClass):
 
         Runs the inference (encoder) model.
         """
-        x_ = x
+        x_ = x        
         if self.use_observed_lib_size:
             library = torch.log(x.sum(1)).unsqueeze(1)
         if self.log_variational:
@@ -272,15 +292,15 @@ class HYBRIDVAE(BaseModuleClass):
             categorical_input = torch.split(cat_covs, 1, dim=1)
         else:
             categorical_input = tuple()
-        # print("############## len(encoder_input) ###", len(encoder_input))
-        qz_m, qz_v, z = self.z_encoder(encoder_input, batch_index, *categorical_input)
-        # TODO: separate qz_m and qz_v and z into two valuables
-        # z = z[0]
-        # print("##########################", len(qz_m), len(qz_v), len(z))
-
+        encoder_input_von_mises = encoder_input[:,self.gene_indexes]
+        encoder_input_normal = torch.Tensor(np.delete(np.array(encoder_input), self.gene_indexes, axis=1))
+        qz_m, qz_v, z = self.z_encoder_normal(encoder_input_normal, batch_index, *categorical_input)
+        qz_m_vM, qz_v_vM, z_vM = self.z_encoder_von_mises(encoder_input_von_mises, batch_index, *categorical_input)
+        qz_m = [qz_m, qz_m_vM]  
+        qz_v = [qz_v, qz_v_vM]
+        z = torch.cat((z, z_vM), dim=-1)
         ql_m, ql_v = None, None
         if not self.use_observed_lib_size:
-            print("len(encoder_input) .... ", len(encoder_input))
             ql_m, ql_v, library_encoded = self.l_encoder(
                 encoder_input, batch_index, *categorical_input
             )
@@ -291,9 +311,10 @@ class HYBRIDVAE(BaseModuleClass):
             qz_m = qz_m[1].unsqueeze(0).expand((n_samples, qz_m[1].size(0), qz_m[1].size(1)))
             qz_v = qz_v[1].unsqueeze(0).expand((n_samples, qz_v[1].size(0), qz_v[1].size(1)))
             # when z is normal, untran_z == z
-            # untran_z = Normal(qz_m, qz_v.sqrt()).sample()
-            untran_z = VonMisesFisher(qz_m[1], qz_v[1].sqrt()).sample()
-            z = self.z_encoder.z_transformation(untran_z)
+            untran_z_normal = Normal(qz_m[0], qz_v[0].sqrt()).sample()
+            untran_z_von_mises = VonMisesFisher(qz_m[1], qz_v[1].sqrt()).sample()
+            untran_z = torch.cat((untran_z_normal, untran_z_von_mises), -1)
+            z = self.z_encoder_normal.z_transformation(untran_z)
             if self.use_observed_lib_size:
                 library = library.unsqueeze(0).expand(
                     (n_samples, library.size(0), library.size(1))
@@ -381,8 +402,6 @@ class HYBRIDVAE(BaseModuleClass):
                 Normal(ql_m, ql_v.sqrt()),
                 Normal(local_library_log_means, local_library_log_vars.sqrt()),
             ).sum(dim=1)
-            # kl_divergence_l_von_mises = kl(VonMisesFisher(ql_m, ql_v), HypersphericalUniform(self.n_latent - 1)).mean()
-            # kl_divergence_l = kl_divergence_l_von_mises + kl_divergence_l_normal
         else:
             kl_divergence_l = 0.0
 
@@ -431,7 +450,7 @@ class HYBRIDVAE(BaseModuleClass):
         inference_outputs, generative_outputs, = self.forward(
             tensors,
             inference_kwargs=inference_kwargs,
-            compute_loss=False,
+            compute_loss=True,
         )
 
         px_r = generative_outputs["px_r"]

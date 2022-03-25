@@ -8,6 +8,7 @@ from ._base_components import (
     LinearDecoderSCVI,
     MultiDecoder,
     MultiEncoder,
+    EncoderHYBRIDVI,
 )
 from ._utils import one_hot
 
@@ -18,6 +19,7 @@ __all__ = [
     "Decoder",
     "DecoderSCVI",
     "DecoderTOTALVI",
+    "EncoderHYBRIDVI",
     "LinearDecoderSCVI",
     "MultiEncoder",
     "MultiDecoder",

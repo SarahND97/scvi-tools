@@ -1,0 +1,5 @@
+parameters,"[0.002, 1, 64, 5]"
+score_nmi_leiden,0.6536452335554467
+score_ari_leiden,0.26873996366053543
+score_nmi_kmeans,0.7773671436943644
+score_ari_kmeans,0.5843682876871509

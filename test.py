@@ -2,7 +2,6 @@ import scanpy as sc
 import sys
 sys.path.append("/Users/sarahnarrowedanielsson/Documents/KTH/Exjobb/svci-tools") 
 # import hybridvi
-import scvi.model as model_
 import scvi
 # import scvi.module as module
 from os import path
@@ -119,7 +118,7 @@ now = datetime.now()
 current_date = today.strftime("%d_%m_%Y")
 current_time = now.strftime("%H_%M")
 # name = "_" + current_date + "_" + current_time + "_"
-name = "_04_03_2022_09_49_" + "only_sperical" + "_"
+name = "_07_03_2022_10_30_" # + "only_sperical" + "_"
 
 model = scvi.model.HYBRIDVI(adata)
 if (path.exists("saved_model/"+name+"hybridvae.model.pkl")):
@@ -150,9 +149,12 @@ latent = model.get_latent_representation()
 #sc.tl.pca(latent)
 adata.obsm["X_scVI"] = latent
 sc.pp.neighbors(adata, use_rep="X_scVI", n_neighbors=20)
-sc.tl.umap(adata, min_dist=0.3)
+#sc.tl.umap(adata, min_dist=0.3)
 sc.tl.leiden(adata, key_added="leiden_hybridVI", resolution=0.8)
-sc.pl.umap(adata, color=["leiden_hybridVI"])
+pred = adata.obs['leiden_hybridVI'].to_list()
+pred = [int(x) for x in pred]
+print(np.unique(pred).shape)
+# sc.pl.umap(adata, color=["leiden_hybridVI"])
 # sc.pp.neighbors(latent, n_neighbors=10, n_pcs=40)
 # sc.tl.leiden(latent, resolution=2)
 # sc.tl.umap(latent)

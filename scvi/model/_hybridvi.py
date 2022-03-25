@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from anndata import AnnData
 
@@ -76,12 +76,13 @@ class HYBRIDVI(
     def __init__(
         self,
         adata: AnnData,
+        gene_indexes: Iterable[int],
         n_hidden: int = 128,
         n_latent: int = 2, # test on 2 latent spaces, 10 dimensions? 
         n_layers: int = 1,
         dropout_rate: float = 0.1,
         dispersion: Literal["gene", "gene-batch", "gene-label", "gene-cell"] = "gene",
-        gene_likelihood: Literal["zinb", "nb", "poisson"] = "zinb",
+        gene_likelihood: str = "zinb",
         latent_distribution: Literal["normal", "ln", "hybrid"] = "hybrid",
         **model_kwargs,
     ):
@@ -109,6 +110,7 @@ class HYBRIDVI(
             latent_distribution=latent_distribution,
             library_log_means=library_log_means,
             library_log_vars=library_log_vars,
+            gene_indexes=gene_indexes,
             **model_kwargs,
         )
         self._model_summary_string = (
