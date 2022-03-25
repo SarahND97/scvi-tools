@@ -41,6 +41,7 @@ def cross_valid_hybrid(parameters, data, K, separation_size):
             for hidden in parameters[1]:
                 for hidden_size in parameters[2]:
                     for ii in range(len(parameters[3])):
+                            print("Parameters: ",lr, hidden, hidden_size, ii)
                             model_ = model.HYBRIDVI(adata=train_i, gene_indexes=parameters[3][ii], n_hidden=hidden_size, n_layers=hidden)
                             model_.train(lr=lr)
                             latent = model_.get_latent_representation(adata=test_i, hybrid=True)
