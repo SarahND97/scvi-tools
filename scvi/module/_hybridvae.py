@@ -376,7 +376,6 @@ class HYBRIDVAE(BaseModuleClass):
     ):
         x = tensors[_CONSTANTS.X_KEY]
         batch_index = tensors[_CONSTANTS.BATCH_KEY]
-        # print("####### HOHOHOHOHOHOHO")
         qz_m = inference_outputs["qz_m"]
         qz_v = inference_outputs["qz_v"]
         px_rate = generative_outputs["px_rate"]

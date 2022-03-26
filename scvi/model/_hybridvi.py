@@ -14,7 +14,6 @@ from .base import ArchesMixin, BaseModelClass, RNASeqMixin, VAEMixin
 
 logger = logging.getLogger(__name__)
 
-
 class HYBRIDVI(
     RNASeqMixin, VAEMixin, ArchesMixin, UnsupervisedTrainingMixin, BaseModelClass
 ):
