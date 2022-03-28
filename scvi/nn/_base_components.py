@@ -12,7 +12,7 @@ from ._utils import one_hot
 
 
 def reparameterize_gaussian(mu, var):
-    print(mu, var)
+    # print(mu, var)
     return Normal(mu, var.sqrt()).rsample()
 
 # Add reparametrization for von mises distribution
@@ -275,16 +275,6 @@ class Encoder(nn.Module):
             self.z_transformation = nn.Softmax(dim=-1)
         else:
             self.z_transformation = identity
-
-        if (self.distribution == "hybrid"):
-            # 2 hidden layers encoder
-            self.fc_e0 = nn.Linear(n_input, n_hidden * 2)
-            self.fc_e1 = nn.Linear(n_hidden * 2, n_hidden)
-
-            # compute mean and concentration of the von Mises-Fisher
-            self.fc_mean = nn.Linear(n_hidden, n_output)
-            self.fc_var = nn.Linear(n_hidden, 1)
-           
     
         self.var_activation = torch.exp if var_activation is None else var_activation
 
@@ -313,24 +303,7 @@ class Encoder(nn.Module):
         q = self.encoder(x, *cat_list)
         q_m = self.mean_encoder(q)
         q_v = self.var_activation(self.var_encoder(q)) + self.var_eps
-        # need to latent representation in case of hybrid representation
-        if (self.distribution == "hybrid"): 
-            # 2 hidden layers encoder
-            x = self.activation(self.fc_e0(x))
-            x = self.activation(self.fc_e1(x))
-            # compute mean and concentration of the von Mises-Fisher
-            z_mean = self.fc_mean(x)
-            z_mean = z_mean / z_mean.norm(dim=-1, keepdim=True)
-            # the `+ 1` prevent collapsing behaviors
-            z_var = F.softplus(self.fc_var(x)) + 1
-            latent_normal = self.z_transformation(reparameterize_gaussian(q_m, q_v))
-            latent_von_mises =  self.z_transformation(reparameterize_vonmises(z_mean, z_var))
-            latent = torch.cat((latent_normal, latent_von_mises), dim=-1)
-            # latent = [self.z_transformation(reparameterize_gaussian(q_m, q_v)), self.z_transformation(reparameterize_vonmises(z_mean, z_var))]
-            q_m = [q_m, z_mean]
-            q_v = [q_v, z_var]
-        else:
-            latent = self.z_transformation(reparameterize_gaussian(q_m, q_v))
+        latent = self.z_transformation(reparameterize_gaussian(q_m, q_v))
         return q_m, q_v, latent # latent = z
 
 # Main Decoder
@@ -1094,7 +1067,6 @@ class EncoderHYBRIDVI(nn.Module):
         n_layers: int = 1,
         n_hidden: int = 128,
         dropout_rate: float = 0.1,
-        distribution: str = "normal",
         var_eps: float = 1e-4,
         var_activation: Optional[Callable] = None,
         activation: torch.nn.functional = F.relu,
@@ -1104,7 +1076,6 @@ class EncoderHYBRIDVI(nn.Module):
 
         self.activation = activation
 
-        self.distribution = distribution
         self.var_eps = var_eps
         self.encoder = FCLayers(
             n_in=n_input,
@@ -1149,22 +1120,17 @@ class EncoderHYBRIDVI(nn.Module):
             tensors of shape ``(n_latent,)`` for mean and var, and sample
 
         """
-        if (self.distribution == "von_mises"): 
-            # 2 hidden layers encoder
-            x = self.activation(self.fc_e0(x))
-            x = self.activation(self.fc_e1(x))
-            # compute mean and concentration of the von Mises-Fisher
-            z_mean = self.fc_mean(x)
-            z_mean = z_mean / z_mean.norm(dim=-1, keepdim=True)
-            # the `+ 1` prevent collapsing behaviors
-            z_var = F.softplus(self.fc_var(x)) + 1
-            latent =  self.z_transformation(reparameterize_vonmises(z_mean, z_var))
-            q_m = z_mean
-            q_v = z_var
-        else:
-            # Parameters for latent distribution
-            q = self.encoder(x, *cat_list)
-            q_m = self.mean_encoder(q)
-            q_v = self.var_activation(self.var_encoder(q)) + self.var_eps
-            latent = self.z_transformation(reparameterize_gaussian(q_m, q_v))
+     
+        # 2 hidden layers encoder
+        x = self.activation(self.fc_e0(x))
+        x = self.activation(self.fc_e1(x))
+        # compute mean and concentration of the von Mises-Fisher
+        z_mean = self.fc_mean(x)
+        z_mean = z_mean / z_mean.norm(dim=-1, keepdim=True)
+        # the `+ 1` prevent collapsing behaviors
+        z_var = F.softplus(self.fc_var(x)) + 1
+        latent =  self.z_transformation(reparameterize_vonmises(z_mean, z_var))
+        q_m = z_mean
+        q_v = z_var
+    
         return q_m, q_v, latent # latent = z
