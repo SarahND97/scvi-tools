@@ -12,6 +12,7 @@ from ._utils import one_hot
 
 
 def reparameterize_gaussian(mu, var):
+    print(mu, var)
     return Normal(mu, var.sqrt()).rsample()
 
 # Add reparametrization for von mises distribution
