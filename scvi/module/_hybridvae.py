@@ -163,14 +163,13 @@ class HYBRIDVAE(BaseModuleClass):
         encoder_cat_list = cat_list if encode_covariates else None
         
         # print("len(n_input_encoder) .... ### ", encoder_cat_list)
-        self.z_encoder_normal = EncoderHYBRIDVI(
+        self.z_encoder_normal = Encoder(
             n_input_encoder_normal,
             n_latent,
             n_cat_list=encoder_cat_list,
             n_layers=n_layers,
             n_hidden=n_hidden,
             dropout_rate=dropout_rate,
-            distribution="normal",
             inject_covariates=deeply_inject_covariates,
             use_batch_norm=use_batch_norm_encoder,
             use_layer_norm=use_layer_norm_encoder,
@@ -184,7 +183,6 @@ class HYBRIDVAE(BaseModuleClass):
             n_layers=n_layers,
             n_hidden=n_hidden,
             dropout_rate=dropout_rate,
-            distribution="von_mises",
             inject_covariates=deeply_inject_covariates,
             use_batch_norm=use_batch_norm_encoder,
             use_layer_norm=use_layer_norm_encoder,
