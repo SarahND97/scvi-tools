@@ -43,7 +43,7 @@ def cross_valid_hybrid(parameters, data, K, separation_size):
                     for ii in range(len(parameters[3])):
                             print("Parameters: ",lr, hidden, hidden_size, separation_size[ii])
                             model_ = model.HYBRIDVI(adata=train_i, gene_indexes=parameters[3][ii], n_hidden=hidden_size, n_layers=hidden)
-                            model_.train(lr=lr, use_gpu=True)
+                            model_.train(lr=lr)
                             latent = model_.get_latent_representation(adata=test_i, hybrid=True)
                             test_i.obsm["X_scvi"] = latent
                             sc.pp.neighbors(test_i, n_neighbors=20, n_pcs=40, use_rep="X_scvi")
