@@ -267,10 +267,11 @@ class Encoder(nn.Module):
             dropout_rate=dropout_rate,
             **kwargs,
         )
+        print("n_output: ", n_output)
+        print("n_hidden: ", n_hidden)
         self.mean_encoder = nn.Linear(n_hidden, n_output)
         self.var_encoder = nn.Linear(n_hidden, n_output)
 
-        # Might need to change these /Sarah
         if distribution == "ln":
             self.z_transformation = nn.Softmax(dim=-1)
         else:
@@ -301,8 +302,11 @@ class Encoder(nn.Module):
         """
         # Parameters for latent distribution
         q = self.encoder(x, *cat_list)
+        print("q: ", q)
         q_m = self.mean_encoder(q)
         q_v = self.var_activation(self.var_encoder(q)) + self.var_eps
+        print("q_v: ", q_v)
+        print("q_m: ", q_m)
         latent = self.z_transformation(reparameterize_gaussian(q_m, q_v))
         return q_m, q_v, latent # latent = z
 

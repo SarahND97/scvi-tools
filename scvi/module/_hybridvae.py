@@ -89,7 +89,8 @@ class HYBRIDVAE(BaseModuleClass):
         n_batch: int = 0,
         n_labels: int = 0,
         n_hidden: int = 128,
-        n_latent: int = 10,
+        n_latent_normal: int = 8,
+        n_latent_von_mises: int = 2,
         n_layers: int = 1,
         n_continuous_cov: int = 0,
         n_cats_per_cov: Optional[Iterable[int]] = None,
@@ -109,7 +110,7 @@ class HYBRIDVAE(BaseModuleClass):
     ):
         super().__init__()
         self.dispersion = dispersion
-        self.n_latent = n_latent
+        self.n_latent_von_mises = n_latent_von_mises
         self.log_variational = log_variational
         self.gene_likelihood = gene_likelihood
         # Automatically deactivate if useless
@@ -162,10 +163,9 @@ class HYBRIDVAE(BaseModuleClass):
         cat_list = [n_batch] + list([] if n_cats_per_cov is None else n_cats_per_cov)
         encoder_cat_list = cat_list if encode_covariates else None
         
-        # print("len(n_input_encoder) .... ### ", encoder_cat_list)
         self.z_encoder_normal = Encoder(
             n_input_encoder_normal,
-            n_latent,
+            n_latent=n_latent_normal,
             n_cat_list=encoder_cat_list,
             n_layers=n_layers,
             n_hidden=n_hidden,
@@ -178,7 +178,7 @@ class HYBRIDVAE(BaseModuleClass):
 
         self.z_encoder_von_mises = EncoderHYBRIDVI(
             n_input_encoder_von_mises,
-            n_latent,
+            n_latent=n_latent_von_mises,
             n_cat_list=encoder_cat_list,
             n_layers=n_layers,
             n_hidden=n_hidden,
@@ -203,7 +203,7 @@ class HYBRIDVAE(BaseModuleClass):
             var_activation=var_activation,
         )
         # decoder goes from n_latent-dimensional space to n_input-d data
-        n_input_decoder = 2*n_latent + n_continuous_cov
+        n_input_decoder = (n_latent_normal+n_latent_von_mises) + n_continuous_cov
         # print("len(n_input_decoder) .... ", len(n_input_encoder))
         self.decoder = DecoderSCVI(
             n_input_decoder,
@@ -384,8 +384,7 @@ class HYBRIDVAE(BaseModuleClass):
         scale = torch.ones_like(qz_v[0])
 
         kl_divergence_z_normal = kl(Normal(qz_m[0], qz_v[0].sqrt()), Normal(mean, scale)).sum(dim=1)
-        kl_divergence_z_von_mises = kl(VonMisesFisher(qz_m[1], qz_v[1]), HypersphericalUniform(self.n_latent - 1)).mean()
-        # kl_divergence_z_von_mises = kl(VonMisesFisher(qz_m, qz_v), VonMisesFisher(qz_m, qz_v))
+        kl_divergence_z_von_mises = kl(VonMisesFisher(qz_m[1], qz_v[1]), HypersphericalUniform(self.n_latent_von_mises - 1)).mean()
         kl_divergence_z = kl_divergence_z_von_mises + kl_divergence_z_normal
         if not self.use_observed_lib_size:
             ql_m = inference_outputs["ql_m"]

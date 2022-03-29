@@ -26,8 +26,10 @@ class HYBRIDVI(
         AnnData object that has been registered via :meth:`~scvi.model.SCVI.setup_anndata`.
     n_hidden
         Number of nodes per hidden layer.
-    n_latent
-        Dimensionality of the latent space.
+    n_latent_normal
+        Dimensionality of the normal latent space.
+    n_latent_von_mises
+        Dimensionality of the von Mises latent space.
     n_layers
         Number of hidden layers used for encoder and decoder NNs.
     dropout_rate
@@ -77,7 +79,8 @@ class HYBRIDVI(
         adata: AnnData,
         gene_indexes: Iterable[int],
         n_hidden: int = 128,
-        n_latent: int = 2, # test on 2 latent spaces, 10 dimensions? 
+        n_latent_normal: int = 8,
+        n_latent_von_mises: int = 2, 
         n_layers: int = 1,
         dropout_rate: float = 0.1,
         dispersion: Literal["gene", "gene-batch", "gene-label", "gene-cell"] = "gene",
@@ -101,7 +104,8 @@ class HYBRIDVI(
             n_continuous_cov=self.summary_stats["n_continuous_covs"],
             n_cats_per_cov=n_cats_per_cov,
             n_hidden=n_hidden,
-            n_latent=n_latent,
+            n_latent_normal = n_latent_normal,
+            n_latent_von_mises = n_latent_von_mises,
             n_layers=n_layers,
             dropout_rate=dropout_rate,
             dispersion=dispersion,
@@ -117,7 +121,7 @@ class HYBRIDVI(
             "{}, dispersion: {}, gene_likelihood: {}, latent_distribution: {}"
         ).format(
             n_hidden,
-            n_latent,
+            [n_latent_normal, n_latent_von_mises],
             n_layers,
             dropout_rate,
             dispersion,
