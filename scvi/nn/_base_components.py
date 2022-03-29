@@ -178,6 +178,7 @@ class FCLayers(nn.Module):
                 else:
                     one_hot_cat = cat  # cat has already been one_hot encoded
                 one_hot_cat_list += [one_hot_cat]
+        print("one_cat_list: ", one_hot_cat_list)
         for i, layers in enumerate(self.fc_layers):
             for layer in layers:
                 if layer is not None:
@@ -200,6 +201,8 @@ class FCLayers(nn.Module):
                             else:
                                 one_hot_cat_list_layer = one_hot_cat_list
                             x = torch.cat((x, *one_hot_cat_list_layer), dim=-1)
+                            print("torch.cat: ", x)
+            
                         x = layer(x)
         return x
 
@@ -302,10 +305,8 @@ class Encoder(nn.Module):
         # Parameters for latent distribution
         print("x: ", x, x.shape)
         print("cat_list: ", *cat_list, len(*cat_list))
-        print("number non-zero elements cat_list: ", len(np.where(np.array(*cat_list) != 0)[0]))
         q = self.encoder(x, *cat_list)
-        print("q.shape: ", q.shape)
-        print("q: ", q)
+        # print("q: ", q)
         q_m = self.mean_encoder(q)
         q_v = self.var_activation(self.var_encoder(q)) + self.var_eps
         latent = self.z_transformation(reparameterize_gaussian(q_m, q_v))
