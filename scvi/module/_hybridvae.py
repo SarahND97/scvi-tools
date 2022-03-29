@@ -165,7 +165,7 @@ class HYBRIDVAE(BaseModuleClass):
         
         self.z_encoder_normal = Encoder(
             n_input_encoder_normal,
-            n_latent=n_latent_normal,
+            n_latent_normal,
             n_cat_list=encoder_cat_list,
             n_layers=n_layers,
             n_hidden=n_hidden,
@@ -178,7 +178,7 @@ class HYBRIDVAE(BaseModuleClass):
 
         self.z_encoder_von_mises = EncoderHYBRIDVI(
             n_input_encoder_von_mises,
-            n_latent=n_latent_von_mises,
+            n_latent_von_mises,
             n_cat_list=encoder_cat_list,
             n_layers=n_layers,
             n_hidden=n_hidden,
