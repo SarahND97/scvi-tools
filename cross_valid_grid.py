@@ -40,11 +40,12 @@ def cross_valid_hybrid(parameters, data, K, separation_size):
         for lr in parameters[0]:
             for hidden in parameters[1]:
                 for hidden_size in parameters[2]:
-                    for ii in range(len(parameters[3])):
-                            print("Parameters: ",lr, hidden, hidden_size, separation_size[ii])
-                            model_ = model.HYBRIDVI(adata=train_i, gene_indexes=parameters[3][ii], n_hidden=hidden_size, n_layers=hidden)
+                    #for ii in range(len(parameters[3])):
+                            print("Parameters: ",lr, hidden, hidden_size)
+                            # model_ = model.HYBRIDVI(adata=train_i, gene_indexes=parameters[3][ii], n_hidden=hidden_size, n_layers=hidden)
+                            model_ = model.SCVI(adata=train_i, n_hidden=hidden_size, n_layers=hidden)
                             model_.train(lr=lr)
-                            latent = model_.get_latent_representation(adata=test_i, hybrid=True)
+                            latent = model_.get_latent_representation(adata=test_i, hybrid=False)
                             test_i.obsm["X_scvi"] = latent
                             sc.pp.neighbors(test_i, n_neighbors=20, n_pcs=40, use_rep="X_scvi")
                             sc.tl.leiden(test_i, key_added="leiden_scvi", resolution=0.8)
@@ -53,7 +54,7 @@ def cross_valid_hybrid(parameters, data, K, separation_size):
                             scores_leiden = clustering_scores(test_i.obs["labels"], pred)
                             labels_pred = KMeans(9, n_init=200).fit_predict(latent)
                             scores_kmeans = clustering_scores(test_i.obs["labels"], labels_pred)
-                            para_setting = str([lr, hidden, hidden_size, separation_size[ii]])
+                            para_setting = str([lr, hidden, hidden_size])#, separation_size[ii]])
                             result = [scores_leiden[0], scores_leiden[1], scores_kmeans[0], scores_kmeans[1]]
                             if para_setting in results:
                                 results[para_setting].append(result)
@@ -85,20 +86,20 @@ adata = _load_pbmc_dataset(run_setup_anndata=False)
 # print(adata.var_names)
 
 # random marking of cells into either von Mises or Gaussian latent space 
-adata.var["von_mises"] = "false"
-# random.seed(10)
+# adata.var["von_mises"] = "false"
+# # random.seed(10)
 seperation_size = [5,6,7]
 gene_indexes_von_mises = [] 
-f =  open("output/indexes_von_mises.txt","w")
-indexes = {}
-for s in seperation_size:
-    genes_vM = random.sample(list(set(adata.var_names)), int(len(list(set(adata.var_names)))/s))
-    # bad practice need to change
-    adata.var.loc[genes_vM, "von_mises"] = "true"
-    gene_indexes_von_mises.append(np.where(adata.var['von_mises'] == "true")[0])
-    indexes[str(s)] = [np.where(adata.var['von_mises'] == "true")[0]]
-f.write(str(indexes))
-f.close()
+# f =  open("output/indexes_von_mises.txt","w")
+# indexes = {}
+# for s in seperation_size:
+#     genes_vM = random.sample(list(set(adata.var_names)), int(len(list(set(adata.var_names)))/s))
+#     # bad practice need to change
+#     adata.var.loc[genes_vM, "von_mises"] = "true"
+#     gene_indexes_von_mises.append(np.where(adata.var['von_mises'] == "true")[0])
+#     indexes[str(s)] = [np.where(adata.var['von_mises'] == "true")[0]]
+# f.write(str(indexes))
+# f.close()
 
 print("split data")
 # TODO: make sure all labels are present in each split, split data into two at first
