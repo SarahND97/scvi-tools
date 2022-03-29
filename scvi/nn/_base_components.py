@@ -301,7 +301,7 @@ class Encoder(nn.Module):
         """
         # Parameters for latent distribution
         print("x: ", x, x.shape)
-        print("cat_list: ", *cat_list, *cat_list.shape)
+        print("cat_list: ", *cat_list, len(*cat_list))
         print("number non-zero elements cat_list: ", len(np.where(np.array(*cat_list) != 0)[0]))
         q = self.encoder(x, *cat_list)
         print("q.shape: ", q.shape)
