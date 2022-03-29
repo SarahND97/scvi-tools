@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 from scvi.distributions import VonMisesFisher
 from torch.nn import ModuleList
+import numpy as np
 
 from ._utils import one_hot
 
@@ -299,8 +300,9 @@ class Encoder(nn.Module):
 
         """
         # Parameters for latent distribution
-        print("x: ", x)
-        print("cat_list: ", *cat_list)
+        print("x: ", x, x.shape)
+        print("cat_list: ", *cat_list, *cat_list.shape)
+        print("number non-zero elements cat_list: ", len(np.where(np.array(*cat_list) != 0)[0]))
         q = self.encoder(x, *cat_list)
         print("q.shape: ", q.shape)
         print("q: ", q)
