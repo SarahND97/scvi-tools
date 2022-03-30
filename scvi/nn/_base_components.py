@@ -178,7 +178,6 @@ class FCLayers(nn.Module):
                 else:
                     one_hot_cat = cat  # cat has already been one_hot encoded
                 one_hot_cat_list += [one_hot_cat]
-        print("one_cat_list: ", one_hot_cat_list)
         for i, layers in enumerate(self.fc_layers):
             for layer in layers:
                 if layer is not None:
@@ -198,16 +197,16 @@ class FCLayers(nn.Module):
                                     )
                                     for o in one_hot_cat_list
                                 ]
-                                print("one_hot_cat_list_layer, x.dim()==3: ", one_hot_cat_list_layer)
+                                # print("one_hot_cat_list_layer, x.dim()==3: ", one_hot_cat_list_layer)
                             else:
                                 one_hot_cat_list_layer = one_hot_cat_list
-                                print("one_hot_cat_list_layer, else: ", one_hot_cat_list_layer)
+                                # print("one_hot_cat_list_layer, else: ", one_hot_cat_list_layer)
                             x = torch.cat((x, *one_hot_cat_list_layer), dim=-1)
                             # print("torch.cat: ", x) # is not nan here
 
-                        print("x.shape", x.shape)
+                        # print("x.shape", x.shape)
                         x = layer(x)
-                        print("layer(x): ", x) # becomes nan here
+                        # print("layer(x): ", x) # becomes nan here
         return x
 
 # Main encoder
@@ -307,7 +306,7 @@ class Encoder(nn.Module):
 
         """
         # Parameters for latent distribution
-        print("x: ", x, x.shape)
+        # print("x: ", x, x.shape)
         # print("cat_list: ", *cat_list, len(*cat_list))
         q = self.encoder(x, *cat_list)
         # print("q: ", q)
