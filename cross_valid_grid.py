@@ -86,7 +86,7 @@ adata = _load_pbmc_dataset(run_setup_anndata=False)
 # random marking of cells into either von Mises or Gaussian latent space 
 adata.var["von_mises"] = "false"
 # random.seed(10)
-seperation_size = [5,6,7]
+seperation_size = [2,3,4,5,6,7,8]
 gene_indexes_von_mises = [] 
 f =  open("output/indexes_von_mises.txt","w")
 indexes = {}
@@ -114,8 +114,8 @@ for d in range(len(data)):
 
 data_cross = [data[1], data[2], data[3]]
 learning_rate = [0.001,0.002,0.003,0.004,0.005,0.006,0.007,0.008,0.009,0.01]
-learning_rate = [0.002,0.003, 0.004]
-hidden_layers = [1,2,3]
+# learning_rate = [0.002,0.003, 0.004]
+hidden_layers = [1,2,3,4,5]
 size_hidden_layer = [64,128,256]
 parameters = [learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises]
 cross_valid_hybrid(parameters, data_cross, K_cross, seperation_size)
@@ -132,4 +132,4 @@ cross_valid_hybrid(parameters, data_cross, K_cross, seperation_size)
 # [0.6671471670705262, 0.31661730059121906, 0.7837582290367187, 0.6512656772937997]], '[0.003, 3, 64, 5]': [[0.6332638964787377, 0.3012328464408762, 0.716215250878572, 0.622744812497254], 
 # [0.6204473762953144, 0.2927482711560561, 0.6927789928318266, 0.5594955515992779], 
 # [0.6671471670705262, 0.31661730059121906, 0.7837582290367187, 0.6512656772937997]]}
-# print(calculate_average(results))
+# print(calculate_average(results))n
