@@ -292,7 +292,6 @@ class HYBRIDVAE(BaseModuleClass):
             categorical_input = tuple()
         encoder_input_von_mises = encoder_input[:,self.gene_indexes]
         encoder_input_normal = torch.Tensor(np.delete(np.array(encoder_input), self.gene_indexes, axis=1))
-        print("encoder_input_normal ", encoder_input_normal)
         qz_m, qz_v, z = self.z_encoder_normal(encoder_input_normal, batch_index, *categorical_input)
         qz_m_vM, qz_v_vM, z_vM = self.z_encoder_von_mises(encoder_input_von_mises, batch_index, *categorical_input)
         qz_m = [qz_m, qz_m_vM]  
