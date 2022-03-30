@@ -198,13 +198,16 @@ class FCLayers(nn.Module):
                                     )
                                     for o in one_hot_cat_list
                                 ]
+                                print("one_hot_cat_list_layer, x.dim()==3: ", one_hot_cat_list_layer)
                             else:
                                 one_hot_cat_list_layer = one_hot_cat_list
+                                print("one_hot_cat_list_layer, else: ", one_hot_cat_list_layer)
                             x = torch.cat((x, *one_hot_cat_list_layer), dim=-1)
-                            print("torch.cat: ", x)
-            
+                            # print("torch.cat: ", x) # is not nan here
+
+                        print("x.shape", x.shape)
                         x = layer(x)
-                        print("layer(x): ", x)
+                        print("layer(x): ", x) # becomes nan here
         return x
 
 # Main encoder
