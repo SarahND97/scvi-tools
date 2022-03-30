@@ -204,6 +204,7 @@ class FCLayers(nn.Module):
                             print("torch.cat: ", x)
             
                         x = layer(x)
+                        print("layer(x): ", x)
         return x
 
 # Main encoder
@@ -304,7 +305,7 @@ class Encoder(nn.Module):
         """
         # Parameters for latent distribution
         print("x: ", x, x.shape)
-        print("cat_list: ", *cat_list, len(*cat_list))
+        # print("cat_list: ", *cat_list, len(*cat_list))
         q = self.encoder(x, *cat_list)
         # print("q: ", q)
         q_m = self.mean_encoder(q)
