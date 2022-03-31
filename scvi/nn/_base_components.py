@@ -13,7 +13,6 @@ from ._utils import one_hot
 
 
 def reparameterize_gaussian(mu, var):
-    # print(mu, var)
     return Normal(mu, var.sqrt()).rsample()
 
 # Add reparametrization for von mises distribution
@@ -202,11 +201,13 @@ class FCLayers(nn.Module):
                                 one_hot_cat_list_layer = one_hot_cat_list
                                 # print("one_hot_cat_list_layer, else: ", one_hot_cat_list_layer)
                             x = torch.cat((x, *one_hot_cat_list_layer), dim=-1)
+                            print("Are there any nan-values in torch.cat(x)?", torch.isnan(x).any())
                             # print("torch.cat: ", x) # is not nan here
 
                         # print("x.shape", x.shape)
                         x = layer(x)
-                        # print("layer(x): ", x) # becomes nan here
+                        print("Are there any nan-values in layer(x)?", torch.isnan(x).any())
+                        print("layer(x): ", x) # becomes nan here
         return x
 
 # Main encoder
