@@ -304,15 +304,15 @@ class HYBRIDVAE(BaseModuleClass):
             )
             library = library_encoded
 
-        # print("####### HEHEHEHEHEHHE")
         if n_samples > 1:
             qz_m = qz_m[1].unsqueeze(0).expand((n_samples, qz_m[1].size(0), qz_m[1].size(1)))
             qz_v = qz_v[1].unsqueeze(0).expand((n_samples, qz_v[1].size(0), qz_v[1].size(1)))
             # when z is normal, untran_z == z
             untran_z_normal = Normal(qz_m[0], qz_v[0].sqrt()).sample()
             untran_z_von_mises = VonMisesFisher(qz_m[1], qz_v[1].sqrt()).sample()
-            untran_z = torch.cat((untran_z_normal, untran_z_von_mises), -1)
-            z = self.z_encoder_normal.z_transformation(untran_z)
+            z_normal = self.z_encoder_normal.z_transformation(untran_z_normal)
+            z_von_mises = self.z_encoder_von_mises.z_transformation(untran_z_von_mises)
+            z = torch.cat((z_normal, z_von_mises), -1)
             if self.use_observed_lib_size:
                 library = library.unsqueeze(0).expand(
                     (n_samples, library.size(0), library.size(1))
