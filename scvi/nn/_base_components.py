@@ -181,12 +181,14 @@ class FCLayers(nn.Module):
             for layer in layers:
                 if layer is not None:
                     if isinstance(layer, nn.BatchNorm1d):
+                        print("Does this happen?")
                         if x.dim() == 3:
                             x = torch.cat(
                                 [(layer(slice_x)).unsqueeze(0) for slice_x in x], dim=0
                             )
                         else:
                             x = layer(x)
+                            print("Are there any nan-values in layer(x), nn.BatchNorm1d?", torch.isnan(x).any())
                     else:
                         if isinstance(layer, nn.Linear) and self.inject_into_layer(i):
                             if x.dim() == 3:
@@ -196,14 +198,13 @@ class FCLayers(nn.Module):
                                     )
                                     for o in one_hot_cat_list
                                 ]
-                                # print("one_hot_cat_list_layer, x.dim()==3: ", one_hot_cat_list_layer)
                             else:
                                 one_hot_cat_list_layer = one_hot_cat_list
-                                # print("one_hot_cat_list_layer, else: ", one_hot_cat_list_layer)
+                                
+                            print("Are there any nan-values in x?", torch.isnan(x).any())
                             x = torch.cat((x, *one_hot_cat_list_layer), dim=-1)
                             print("Are there any nan-values in torch.cat(x)?", torch.isnan(x).any())
-                            # print("torch.cat: ", x) # is not nan here
-
+                            
                         # print("x.shape", x.shape)
                         x = layer(x)
                         print("Are there any nan-values in layer(x)?", torch.isnan(x).any())
@@ -280,6 +281,7 @@ class Encoder(nn.Module):
 
         if distribution == "ln":
             self.z_transformation = nn.Softmax(dim=-1)
+            print("ln")
         else:
             self.z_transformation = identity
     
