@@ -188,6 +188,19 @@ class HYBRIDVAE(BaseModuleClass):
             use_layer_norm=use_layer_norm_encoder,
             var_activation=var_activation,
         )
+
+        self.z_encoder_normal_test = Encoder(
+            n_input_encoder_von_mises,
+            n_latent_von_mises,
+            n_cat_list=encoder_cat_list,
+            n_layers=n_layers,
+            n_hidden=n_hidden,
+            dropout_rate=dropout_rate,
+            inject_covariates=deeply_inject_covariates,
+            use_batch_norm=use_batch_norm_encoder,
+            use_layer_norm=use_layer_norm_encoder,
+            var_activation=var_activation,
+        )
         # l encoder goes from n_input-dimensional data to 1-d library size
         # print("len(n_input_encoder) .... ", encoder_cat_list)
         self.l_encoder = Encoder(
@@ -293,7 +306,7 @@ class HYBRIDVAE(BaseModuleClass):
         encoder_input_von_mises = encoder_input[:,self.gene_indexes]
         encoder_input_normal = torch.Tensor(np.delete(np.array(encoder_input), self.gene_indexes, axis=1))
         qz_m, qz_v, z = self.z_encoder_normal(encoder_input_normal, batch_index, *categorical_input)
-        qz_m_vM, qz_v_vM, z_vM = self.z_encoder_von_mises(encoder_input_von_mises, batch_index, *categorical_input)
+        qz_m_vM, qz_v_vM, z_vM = self.z_encoder_normal_test(encoder_input_von_mises, batch_index, *categorical_input)
         qz_m = [qz_m, qz_m_vM]  
         qz_v = [qz_v, qz_v_vM]
         z = torch.cat((z, z_vM), dim=-1)
@@ -305,11 +318,13 @@ class HYBRIDVAE(BaseModuleClass):
             library = library_encoded
 
         if n_samples > 1:
-            qz_m = qz_m[1].unsqueeze(0).expand((n_samples, qz_m[1].size(0), qz_m[1].size(1)))
-            qz_v = qz_v[1].unsqueeze(0).expand((n_samples, qz_v[1].size(0), qz_v[1].size(1)))
+            qz_m_normal = qz_m[0].unsqueeze(0).expand((n_samples, qz_m[0].size(0), qz_m[0].size(1)))
+            qz_v_normal = qz_v[0].unsqueeze(0).expand((n_samples, qz_v[0].size(0), qz_v[0].size(1)))
+            qz_m_von_mises = qz_m[1].unsqueeze(0).expand((n_samples, qz_m[1].size(0), qz_m[1].size(1)))
+            qz_v_von_mises = qz_v[1].unsqueeze(0).expand((n_samples, qz_v[1].size(0), qz_v[1].size(1)))
             # when z is normal, untran_z == z
-            untran_z_normal = Normal(qz_m[0], qz_v[0].sqrt()).sample()
-            untran_z_von_mises = VonMisesFisher(qz_m[1], qz_v[1].sqrt()).sample()
+            untran_z_normal = Normal(qz_m_normal, qz_v_normal.sqrt()).sample()
+            untran_z_von_mises = VonMisesFisher(qz_m_von_mises, qz_v_von_mises.sqrt()).sample()
             z_normal = self.z_encoder_normal.z_transformation(untran_z_normal)
             z_von_mises = self.z_encoder_von_mises.z_transformation(untran_z_von_mises)
             z = torch.cat((z_normal, z_von_mises), -1)
@@ -384,8 +399,8 @@ class HYBRIDVAE(BaseModuleClass):
         scale = torch.ones_like(qz_v[0])
 
         kl_divergence_z_normal = kl(Normal(qz_m[0], qz_v[0].sqrt()), Normal(mean, scale)).sum(dim=1)
-        # kl_divergence_z_von_mises = kl(VonMisesFisher(qz_m[1], qz_v[1]), HypersphericalUniform(self.n_latent_von_mises - 1)).mean()
-        kl_divergence_z = kl_divergence_z_normal #+  kl_divergence_z_von_mises 
+        kl_divergence_z_von_mises = kl(VonMisesFisher(qz_m[1], qz_v[1]), HypersphericalUniform(self.n_latent_von_mises - 1)).mean()
+        kl_divergence_z = kl_divergence_z_normal +  kl_divergence_z_von_mises 
         if not self.use_observed_lib_size:
             ql_m = inference_outputs["ql_m"]
             ql_v = inference_outputs["ql_v"]
