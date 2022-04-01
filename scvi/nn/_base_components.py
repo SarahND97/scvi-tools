@@ -179,18 +179,18 @@ class FCLayers(nn.Module):
                 one_hot_cat_list += [one_hot_cat]
         for i, layers in enumerate(self.fc_layers):
             for layer in layers:
-                print("Are there any nan-values in x (layer in layers)?", torch.isnan(x).any())
+                #print("Are there any nan-values in x (layer in layers)?", torch.isnan(x).any())
                 if layer is not None:
                     if isinstance(layer, nn.BatchNorm1d):
                         if x.dim() == 3:
                             x = torch.cat(
                                 [(layer(slice_x)).unsqueeze(0) for slice_x in x], dim=0
                             )
-                            print("Are there any nan-values in layer(x), nn.BatchNorm1d?, x.dim==3", torch.isnan(x).any())
+                            #print("Are there any nan-values in layer(x), nn.BatchNorm1d?, x.dim==3", torch.isnan(x).any())
 
                         else:
                             x = layer(x)
-                            print("Are there any nan-values in layer(x), nn.BatchNorm1d?, else", torch.isnan(x).any())
+                            #print("Are there any nan-values in layer(x), nn.BatchNorm1d?, else", torch.isnan(x).any())
                     else:
                         if isinstance(layer, nn.Linear) and self.inject_into_layer(i):
                             if x.dim() == 3:
@@ -203,14 +203,14 @@ class FCLayers(nn.Module):
                             else:
                                 one_hot_cat_list_layer = one_hot_cat_list
                                 
-                            print("Are there any nan-values in x?", torch.isnan(x).any())
+                            #print("Are there any nan-values in x?", torch.isnan(x).any())
                             x = torch.cat((x, *one_hot_cat_list_layer), dim=-1)
-                            print("Are there any nan-values in torch.cat(x)?", torch.isnan(x).any())
+                            #print("Are there any nan-values in torch.cat(x)?", torch.isnan(x).any())
                             
                         # print("x.shape", x.shape)
                         x = layer(x)
-                        print("Are there any nan-values in layer(x)?", torch.isnan(x).any())
-                        print("layer(x): ", x) # becomes nan here
+                        #print("Are there any nan-values in layer(x)?", torch.isnan(x).any())
+                        #print("layer(x): ", x) # becomes nan here
         return x
 
 # Main encoder
