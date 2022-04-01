@@ -124,9 +124,7 @@ class VonMisesFisher(torch.distributions.Distribution):
                 .to(self.device)
                 .transpose(0, -1)[1:]
         ).transpose(0, -1)
-        v = v / v.norm(dim=-1, keepdim=True)
-        print("v: nan?", torch.isnan(v).any())
-        print("v.norm(dim=-1, keepdim=True):",  v.norm(dim=-1, keepdim=True))
+        v = v / (v.norm(dim=-1, keepdim=True) + 1e-5)
 
         w_ = torch.sqrt(torch.clamp(1 - (w ** 2), 1e-10))
         x = torch.cat((w, w_ * v), -1)
@@ -135,7 +133,6 @@ class VonMisesFisher(torch.distributions.Distribution):
         return z.type(self.dtype)
 
     def __sample_w3(self, shape):
-        print("this happens: _sample_w3")
         shape = shape + torch.Size(self.scale.shape)
         u = torch.distributions.Uniform(0, 1).sample(shape).to(self.device)
         self.__w = (
@@ -148,7 +145,6 @@ class VonMisesFisher(torch.distributions.Distribution):
         return self.__w
 
     def __sample_w_rej(self, shape):
-        print("this happens: _sample_w_rej")
         c = torch.sqrt((4 * (self.scale ** 2)) + (self.__m - 1) ** 2)
         b_true = (-2 * self.scale + c) / (self.__m - 1)
 
@@ -165,7 +161,7 @@ class VonMisesFisher(torch.distributions.Distribution):
         b = b_app * s + b_true * (1 - s)
 
         a = (self.__m - 1 + 2 * self.scale + c) / 4
-        d = (4 * a * b) / (1 + b) - (self.__m - 1) * math.log(self.__m - 1)
+        d = (4 * a * b) / (1 + b) - (self.__m - 1) * math.log(self.__m - 1) # this could be zero
 
         self.__b, (self.__e, self.__w) = b, self.__while_loop(b, a, d, shape, k=self.k)
         return self.__w
@@ -213,9 +209,7 @@ class VonMisesFisher(torch.distributions.Distribution):
             )
 
             w_ = (1 - (1 + b) * e_) / (1 - (1 - b) * e_)
-            print("w_: nan?", torch.isnan(w_).any())
             t = (2 * a * b) / (1 - (1 - b) * e_)
-            print("t: nan?", torch.isnan(t).any())
             accept = ((self.__m - 1.0) * t.log() - t + d) > torch.log(u)
             accept_idx = self.first_nonzero(accept, dim=-1, invalid_val=-1).unsqueeze(1)
             accept_idx_clamped = accept_idx.clamp(0)
@@ -245,7 +239,6 @@ class VonMisesFisher(torch.distributions.Distribution):
                 * ive(self.__m / 2, self.scale)
                 / ive((self.__m / 2) - 1, self.scale)
         )
-        print("entropy: nan?", torch.isnan(output.view(output.size(0), -1) + self._log_normalization()).any())
         return output.view(output.size(0), -1) + self._log_normalization()
 
     def log_prob(self, x):
