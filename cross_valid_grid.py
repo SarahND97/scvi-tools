@@ -83,10 +83,7 @@ adata = _load_pbmc_dataset(run_setup_anndata=False)
 # print(adata.var['gene_symbols'][0])
 # print(adata.var_names)
 
-# random marking of cells into either von Mises or Gaussian latent space 
-adata.var["von_mises"] = "false"
-# random.seed(10)
-seperation_size = [2,3,4]
+seperation_size = [2,3]
 f1 = open("output/indexes_von_mises.txt", "r")
 lines_gene_indexes = f1.readlines()
 gene_indexes_von_mises = []
@@ -110,10 +107,9 @@ for d in range(len(data)):
     data[d] = da 
 
 data_cross = [data[1], data[2], data[3]]
-learning_rate = [0.001,0.002,0.003]
-learning_rate = [0.002,0.003, 0.004]
-hidden_layers = [1,2,3,4,5]
-size_hidden_layer = [64,128,256]
+learning_rate = [0.001, 0.002]
+hidden_layers = [1,2]
+size_hidden_layer = [128,256]
 parameters = [learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises]
 cross_valid_hybrid(parameters, data_cross, K_cross, seperation_size)
 
