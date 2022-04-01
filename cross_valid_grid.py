@@ -86,18 +86,15 @@ adata = _load_pbmc_dataset(run_setup_anndata=False)
 # random marking of cells into either von Mises or Gaussian latent space 
 adata.var["von_mises"] = "false"
 # random.seed(10)
-seperation_size = [2,3,4,5,6,7,8]
-gene_indexes_von_mises = [] 
-f =  open("output/indexes_von_mises.txt","w")
-indexes = {}
-for s in seperation_size:
-    genes_vM = random.sample(list(set(adata.var_names)), int(len(list(set(adata.var_names)))/s))
-    # bad practice need to change
-    adata.var.loc[genes_vM, "von_mises"] = "true"
-    gene_indexes_von_mises.append(np.where(adata.var['von_mises'] == "true")[0])
-    indexes[str(s)] = [np.where(adata.var['von_mises'] == "true")[0]]
-f.write(str(indexes))
-f.close()
+seperation_size = [2,3,4]
+f1 = open("output/indexes_von_mises.txt", "r")
+lines_gene_indexes = f1.readlines()
+gene_indexes_von_mises = []
+for s in seperation_size: 
+    line_nr_genes = s-2
+    line_genes = lines_gene_indexes[line_nr_genes].split()
+    gene_indexes_von_mises.append([int(x.strip()) if x !="\n" else '' for x in line_genes])
+f1.close()
 
 print("split data")
 adata_cross = adata[:int((len(adata)*2)/3), :]
@@ -113,23 +110,10 @@ for d in range(len(data)):
     data[d] = da 
 
 data_cross = [data[1], data[2], data[3]]
-learning_rate = [0.001,0.002,0.003,0.004,0.005,0.006,0.007,0.008,0.009,0.01]
-# learning_rate = [0.002,0.003, 0.004]
+learning_rate = [0.001,0.002,0.003]
+learning_rate = [0.002,0.003, 0.004]
 hidden_layers = [1,2,3,4,5]
 size_hidden_layer = [64,128,256]
 parameters = [learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises]
 cross_valid_hybrid(parameters, data_cross, K_cross, seperation_size)
 
-# if (path.exists("saved_model/"+name+"hybrid.model.pkl")):
-#     model_ = torch.load('saved_model/'+name+'hybrid.model.pkl')
-# else:
-#     model_ = model.HYBRIDVI(adata, gene_indexes=gene_indexes_von_mises)
-#     model_.train()     
-#     torch.save(model_,'saved_model/'+name+'SCVI.model.pkl')
-
-# results ={'[0.002, 1, 64, 5]': [[0.6332638964787377, 0.3012328464408762, 0.716215250878572, 0.622744812497254], 
-# [0.6204473762953144, 0.2927482711560561, 0.6927789928318266, 0.5594955515992779], 
-# [0.6671471670705262, 0.31661730059121906, 0.7837582290367187, 0.6512656772937997]], '[0.003, 3, 64, 5]': [[0.6332638964787377, 0.3012328464408762, 0.716215250878572, 0.622744812497254], 
-# [0.6204473762953144, 0.2927482711560561, 0.6927789928318266, 0.5594955515992779], 
-# [0.6671471670705262, 0.31661730059121906, 0.7837582290367187, 0.6512656772937997]]}
-# print(calculate_average(results))n
