@@ -3,9 +3,6 @@ from pathlib import Path
 from scvi import data
 from scvi import model
 from os import path
-# from sklearn.manifold import TSNE
-# from sklearn.cluster import KMeans
-# from sklearn.decomposition import PCA
 import anndata
 import matplotlib.pyplot as plt
 plt.style.use('seaborn-whitegrid')
@@ -171,51 +168,54 @@ adata.raw = adata # freeze the state in `.raw`
 
 import sys
 sys.path.append("/corgi/SarahND/svci-tools") 
+
+
+sc.pp.filter_cells(adata, min_genes=20)  #lower than usual
+sc.pp.filter_genes(adata, min_cells=3)
+
+adata.layers["counts"] = adata.X.copy() # preserve counts
+sc.pp.normalize_total(adata, target_sum=1e4) # here we normalize data 
+sc.pp.log1p(adata)
+adata.raw = adata # freeze the state in `.raw`
+
+# Find 
+cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
+print(cell_cycle_genes)
+s_genes = cell_cycle_genes[:43]
+g2m_genes = cell_cycle_genes[43:]
+print("adata.var", adata.var_names)
+# print("adata.obs", adata.obs)
+cell_cycle_genes = [x for x in cell_cycle_genes if x in adata.var_names]
+print("cell_cycle_genes:", len(cell_cycle_genes))
+# print(adata.var['gene_symbols'][0])
+# print(adata.var_names)
+adata.var["von_mises"] = "false"
+# bad practice need to change
+adata.var.loc[cell_cycle_genes, "von_mises"] = "true"
+gene_indexes_von_mises = (np.where(adata.var['von_mises'] == "true")[0])
+print(len(gene_indexes_von_mises))
 data.setup_anndata(
     adata,
     layer="counts"
 )
-
 today = date.today()
 now = datetime.now()
 current_date = today.strftime("%d_%m_%Y")
 current_time = now.strftime("%H_%M")
-name = "_" + current_date + "_" + current_time + "_" 
-# name = "_08_02_2022_14_14_"
+name = "_" + current_date + "_" + current_time + "_"
+# name = "_07_03_2022_10_30_" # + "only_sperical" + "_"
 
-model_ = model.HYBRIDVI(adata)
+model_ = model.HYBRIDVI(adata, gene_indexes_von_mises)
 if (path.exists("saved_model/"+name+"hybridvae.model.pkl")):
-    model = torch.load('saved_model/'+name+'hybridvae.model.pkl')
+    model_ = torch.load('saved_model/'+name+'hybridvae.model.pkl')
 else:
-    model_ = model.HYBRIDVI(adata)
-    model_.train()     
-    torch.save(model_,'saved_model/'+name+'hybridvae.model.pkl')
+    model_ = model.HYBRIDVI(adata, gene_indexes_von_mises)
+    model_.train(lr=0.001)     
+    torch.save(model,'saved_model/'+name+'hybridvae.model.pkl')
 
 latent = model_.get_latent_representation()
-adata.obsm["scvi"] = latent
-adata.obsm["X_pca"] = latent
-
-def clustering(latent):
-    sc.pp.neighbors(latent)
-    sc.tl.leiden(latent, key_added = "leiden_1.0")
-
-plt.figure(figsize=(10,8))
-plt.suptitle("latent space in hybrid-VAE, n_latent=2")
-plt.subplot(121)
-plt.hist(latent[:,0], bins =100)
-plt.subplot(122)
-plt.hist(latent[:,1], bins =100)
-fname = "data/latent" + name + ".png"
-plt.savefig(fname)
-# plt.show()
-# clustering(latent)
-
-# import leidenalg
-# import igraph as ig
-# G = ig.Graph.Erdos_Renyi(100, 0.1);
-# For simply finding a partition use:
-# part = leidenalg.find_partition(G, leidenalg.ModularityVertexPartition);
-
-
-
+adata.obsm["X_scVI"] = latent
+sc.pp.neighbors(adata, use_rep="X_scVI", n_neighbors=10)
+sc.tl.leiden(adata, key_added="leiden_hybridVI", resolution=0.5)
+sc.pl.umap(adata, color=["leiden_hybridVI"], save="output/latent_space.png")
 
