@@ -1,8 +1,11 @@
 name: scvi_tools
 dependencies:
   - python=3.8.*
+  - numpy
+  - random
   - pytest
   - scanpy
+  - pytorch
   - matplotlib
   - numpy
   - pandas=1.2.5
