@@ -120,7 +120,7 @@ class DataSplitter(pl.LightningDataModule):
         return AnnDataLoader(
             self.adata,
             indices=self.train_idx,
-            shuffle=True,
+            shuffle=False,
             drop_last=3,
             pin_memory=self.pin_memory,
             **self.data_loader_kwargs,
@@ -131,7 +131,7 @@ class DataSplitter(pl.LightningDataModule):
             return AnnDataLoader(
                 self.adata,
                 indices=self.val_idx,
-                shuffle=True,
+                shuffle=False,
                 drop_last=3,
                 pin_memory=self.pin_memory,
                 **self.data_loader_kwargs,
@@ -144,7 +144,7 @@ class DataSplitter(pl.LightningDataModule):
             return AnnDataLoader(
                 self.adata,
                 indices=self.test_idx,
-                shuffle=True,
+                shuffle=False,
                 drop_last=3,
                 pin_memory=self.pin_memory,
                 **self.data_loader_kwargs,
@@ -290,7 +290,7 @@ class SemiSupervisedDataSplitter(pl.LightningDataModule):
         return self.data_loader_class(
             self.adata,
             indices=self.train_idx,
-            shuffle=True,
+            shuffle=False,
             drop_last=3,
             pin_memory=self.pin_memory,
             **self.data_loader_kwargs,
@@ -301,7 +301,7 @@ class SemiSupervisedDataSplitter(pl.LightningDataModule):
             return self.data_loader_class(
                 self.adata,
                 indices=self.val_idx,
-                shuffle=True,
+                shuffle=False,
                 drop_last=3,
                 pin_memory=self.pin_memory,
                 **self.data_loader_kwargs,
@@ -314,7 +314,7 @@ class SemiSupervisedDataSplitter(pl.LightningDataModule):
             return self.data_loader_class(
                 self.adata,
                 indices=self.test_idx,
-                shuffle=True,
+                shuffle=False,
                 drop_last=3,
                 pin_memory=self.pin_memory,
                 **self.data_loader_kwargs,
