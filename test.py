@@ -26,7 +26,7 @@ def concatenate_adatas(list_adata):
 
 datasets =[
     "SRR11816791",
-    "SRR11816792"
+    # "SRR11816792"
 ]
 
 list_adata=[]
@@ -34,8 +34,8 @@ cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt
 s_genes = cell_cycle_genes[:43]
 g2m_genes = cell_cycle_genes[43:]
 for i in range(len(datasets)):
-    fname = "data/"+datasets[i]+"/filtered_feature_bc_matrix.h5"
-    # fname = "/corgi/cellbuster/holmes2020/cellranger/"+datasets[i]+"/outs/filtered_feature_bc_matrix.h5"
+    # fname = "data/"+datasets[i]+"/filtered_feature_bc_matrix.h5"
+    fname = "/corgi/cellbuster/holmes2020/cellranger/"+datasets[i]+"/outs/filtered_feature_bc_matrix.h5"
     adata = sc.read_10x_h5(fname)
     adata.var["von_mises"] = "false"
     cell_cycle_genes_von_mises = [x for x in cell_cycle_genes if x in adata.var_names]
@@ -69,13 +69,13 @@ name = "_" + current_date + "_" + current_time + "_"
 # name = "_04_04_2022_16_38_" 
 
 model_ = model.HYBRIDVI(adata, gene_indexes_von_mises)
-if (path.exists("saved_model/"+name+"hybridvae.model.pkl")):
-    model_.load_state_dict('saved_model/'+name+'hybridvae')
+if (path.exists("saved_model/"+name+"hybridvae.model.pt")):
+    model_.load('saved_model/'+name+'hybridvae.pt')
     model_.eval()
 else:
     model_ = model.HYBRIDVI(adata, gene_indexes_von_mises)
     model_.train(lr=0.001)     
-    torch.save(model_.state_dict(),'saved_model/'+name+'hybridvae')
+    model_.save(dir_path='saved_model/'+name+'hybridvae.pt', overwrite=True)
 
 # latent = model_.get_latent_representation()
 # adata.obsm["X_scVI"] = latent
