@@ -89,7 +89,7 @@ class HYBRIDVAE(BaseModuleClass):
         n_batch: int = 0,
         n_labels: int = 0,
         n_hidden: int = 128,
-        n_latent_normal: int = 8,
+        n_latent_normal: int = 10,
         n_latent_von_mises: int = 2,
         n_layers: int = 1,
         n_continuous_cov: int = 0,
@@ -167,8 +167,9 @@ class HYBRIDVAE(BaseModuleClass):
             n_input_encoder_normal,
             n_latent_normal,
             n_cat_list=encoder_cat_list,
-            n_layers=n_layers,
-            n_hidden=n_hidden,
+            # Set to the chosen hyperparameters of scVI
+            n_layers=1,
+            n_hidden=128,
             dropout_rate=dropout_rate,
             inject_covariates=deeply_inject_covariates,
             use_batch_norm=use_batch_norm_encoder,
@@ -177,19 +178,6 @@ class HYBRIDVAE(BaseModuleClass):
         )
 
         self.z_encoder_von_mises = EncoderHYBRIDVI(
-            n_input_encoder_von_mises,
-            n_latent_von_mises,
-            n_cat_list=encoder_cat_list,
-            n_layers=n_layers,
-            n_hidden=n_hidden,
-            dropout_rate=dropout_rate,
-            inject_covariates=deeply_inject_covariates,
-            use_batch_norm=use_batch_norm_encoder,
-            use_layer_norm=use_layer_norm_encoder,
-            var_activation=var_activation,
-        )
-
-        self.z_encoder_normal_test = Encoder(
             n_input_encoder_von_mises,
             n_latent_von_mises,
             n_cat_list=encoder_cat_list,
@@ -222,8 +210,9 @@ class HYBRIDVAE(BaseModuleClass):
             n_input_decoder,
             n_input,
             n_cat_list=cat_list,
-            n_layers=n_layers,
-            n_hidden=n_hidden,
+            # Set to the chosen hyperparameters of scVI
+            n_layers=1,
+            n_hidden=128,
             inject_covariates=deeply_inject_covariates,
             use_batch_norm=use_batch_norm_decoder,
             use_layer_norm=use_layer_norm_decoder,
