@@ -1077,42 +1077,35 @@ class EncoderHYBRIDVI(nn.Module):
         self,
         n_input: int,
         n_output: int,
-        n_cat_list: Iterable[int] = None,
-        n_layers: int = 1,
+        n_layers: int = 2,
         n_hidden: int = 128,
-        dropout_rate: float = 0.1,
-        var_eps: float = 1e-4,
-        var_activation: Optional[Callable] = None,
         activation: torch.nn.functional = F.relu,
         **kwargs,
     ):
         super().__init__()
 
+        self.n_layers = n_layers
         self.activation = activation
-
-        self.var_eps = var_eps
-        self.encoder = FCLayers(
-            n_in=n_input,
-            n_out=n_hidden,
-            n_cat_list=n_cat_list,
-            n_layers=n_layers,
-            n_hidden=n_hidden,
-            dropout_rate=dropout_rate,
-            **kwargs,
-        )
         self.mean_encoder = nn.Linear(n_hidden, n_output)
         self.var_encoder = nn.Linear(n_hidden, n_output)
         self.z_transformation = identity
 
-        self.fc_e0 = nn.Linear(n_input, n_hidden * 2)
-        self.fc_e1 = nn.Linear(n_hidden * 2, n_hidden)
+        self.fc_layers = []
+        self.input_dim = []
+        input_dim = n_input
+        output_dim = n_hidden * 2
+        for _ in range(self.n_layers):
+            self.fc_layers.append(nn.Linear(input_dim, output_dim))
+            input_dim = output_dim
+            output_dim = input_dim
+
+        # self.fc_e0 = nn.Linear(n_input, n_hidden * 2)
+        # self.fc_e1 = nn.Linear(n_hidden * 2, n_hidden)
 
         # compute mean and concentration of the von Mises-Fisher
         self.fc_mean = nn.Linear(n_hidden, n_output)
         self.fc_var = nn.Linear(n_hidden, 1)
            
-        self.var_activation = torch.exp if var_activation is None else var_activation
-
     def forward(self, x: torch.Tensor, *cat_list: int):
         r"""
         The forward computation for a single sample.
@@ -1136,8 +1129,10 @@ class EncoderHYBRIDVI(nn.Module):
         """
      
         # 2 hidden layers encoder
-        x = self.activation(self.fc_e0(x))
-        x = self.activation(self.fc_e1(x))
+        for i in range(self.n_layers):
+            layer = self.fc_layers[i]
+            x = self.activation(layer(x))
+        # x = self.activation(self.fc_e1(x))
         # compute mean and concentration of the von Mises-Fisher
         z_mean = self.fc_mean(x)
         z_mean = z_mean / z_mean.norm(dim=-1, keepdim=True)

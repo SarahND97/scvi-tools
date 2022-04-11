@@ -183,11 +183,6 @@ class HYBRIDVAE(BaseModuleClass):
             n_cat_list=encoder_cat_list,
             n_layers=n_layers,
             n_hidden=n_hidden,
-            dropout_rate=dropout_rate,
-            inject_covariates=deeply_inject_covariates,
-            use_batch_norm=use_batch_norm_encoder,
-            use_layer_norm=use_layer_norm_encoder,
-            var_activation=var_activation,
         )
         # l encoder goes from n_input-dimensional data to 1-d library size
         # print("len(n_input_encoder) .... ", encoder_cat_list)
