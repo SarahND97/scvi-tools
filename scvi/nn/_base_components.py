@@ -1094,10 +1094,13 @@ class EncoderHYBRIDVI(nn.Module):
         self.input_dim = []
         input_dim = n_input
         output_dim = n_hidden * 2
-        for _ in range(self.n_layers):
-            self.fc_layers.append(nn.Linear(input_dim, output_dim))
-            input_dim = output_dim
-            output_dim = input_dim
+        if self.n_layers > 1:
+            for _ in range(self.n_layers):
+                self.fc_layers.append(nn.Linear(input_dim, output_dim))
+                input_dim = output_dim
+                output_dim = n_hidden
+        else:
+            self.fc_layers.append(nn.Linear(input_dim, n_hidden))
 
         # self.fc_e0 = nn.Linear(n_input, n_hidden * 2)
         # self.fc_e1 = nn.Linear(n_hidden * 2, n_hidden)
