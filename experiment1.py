@@ -140,6 +140,6 @@ def data(dataset):
     data_cross = [data[1], data[2], data[3]]
     return gene_indexes_von_mises, data_cross, K_cross, adata_train_best_model
 
-gene_indexes_von_mises, data_cross, K_cross, _ = data("cortex", False)
+gene_indexes_von_mises, data_cross, K_cross, _ = data("cortex")
 for i in range(48):
     start_cross_valid(i, gene_indexes_von_mises, data_cross, K_cross)
