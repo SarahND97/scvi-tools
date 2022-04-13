@@ -2,9 +2,26 @@ from scvi import model
 from sklearn.metrics import normalized_mutual_info_score as NMI
 from sklearn.metrics import adjusted_rand_score as ARI
 from scvi.data._built_in_data._pbmc import _load_pbmc_dataset
+from scvi.data._built_in_data._cortex import _load_cortex
 from scvi.data._anndata import _setup_anndata
 import scanpy as sc
 import numpy as np
+
+def create_parameters_file():
+    learning_rate = [0.0001, 0.0002, 0.0003, 0.0004, 0.0005, 0.0006]
+    hidden_layer_von_mises = [1,2]
+    size_hidden_layer_von_mises = [64,128,256,512]
+    i = 0
+    name = "input/parameters.in"
+    for l in learning_rate:
+        for h_l in hidden_layer_von_mises:
+            for s_h_l in size_hidden_layer_von_mises:
+                    f = open(name,"a")
+                    string = str(l) + " " + str(h_l) + " " + str(s_h_l) + "\n"
+                    f.write(string)
+                    f.close
+                    i = i+1
+                    print(i)
 
 def clustering_scores(labels_true, labels_pred):
     return [NMI(labels_true, labels_pred), ARI(labels_true, labels_pred)]
@@ -16,7 +33,6 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
     average_nmi = 0
     average_ari = 0
     parameters = [learning_rate, hidden_layers, size_hidden_layer]
-    # might need to change the name of the text file every time 
     f = open("output/average_results.txt","a")
     f2 = open("output/results.txt","a")
     for i in range(K):
@@ -46,44 +62,84 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
     f2.close()
     print(average)
 
-def start(line_nr):
+def start_cross_valid(line_nr, gene_indexes_von_mises, data_cross, K_cross):
     file = "input/parameters.in"
     f = open(file, "r")
     lines = f.readlines()
     line = lines[line_nr].split()
-    print(line)
     learning_rate = float(line[0])
     hidden_layers = int(line[1])
     size_hidden_layer = int(line[2])
     cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data_cross, K_cross)
     f.close()
 
-adata = _load_pbmc_dataset(run_setup_anndata=False)
-K_cross = 3
+def final_result(dataset, gene_indexes, data):
+    learning_rate = 0
+    hidden_layers = 0 
+    size_hidden_layer = 0
 
-# Find the cell cycle genes in the data
-cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
-genes = [x for x in adata.var["gene_symbols"]]
-s_genes = cell_cycle_genes[:43]
-g2m_genes = cell_cycle_genes[43:]
-cell_cycle_genes = [x for x in cell_cycle_genes if x in genes]
-adata.var["von_mises"] = "false"
-for gene in cell_cycle_genes:
-    adata.var.loc[adata.var["gene_symbols"] == gene, "von_mises"] = "true"
-gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
-adata_cross = adata[:int((len(adata)*2)/K_cross), :]
-adata_train_best_model = adata[int((len(adata)*2)/K_cross):, :]
-size = int(len(adata_cross)/K_cross)
-adata_1 = adata_cross[:size,:]
-adata_2 = adata_cross[size:2*size,:]
-adata_3 = adata_cross[2*size:,:]
-data = [adata_train_best_model, adata_1, adata_2, adata_3]
-for d in range(len(data)):
-    da = data[d].copy()
-    _setup_anndata(da, batch_key="batch", labels_key="labels")
-    data[d] = da 
+    if dataset=="pbmc":
+        learning_rate = 0.0001
+        hidden_layers = 2
+        size_hidden_layer = 256
 
-data_cross = [data[1], data[2], data[3]]
+    elif dataset=="cortex":
+       adata = _load_cortex(run_setup_anndata=False)
 
-for i in range(75):
-    start(i)
+    size = int((len(adata)*2)/3)
+    train = data[:size,:]
+    test = data[size:,:]
+    data = [train,test]
+    for d in range(len(data)):
+        da = data[d].copy()
+        _setup_anndata(da, batch_key="batch", labels_key="labels")
+        data[d] = da 
+
+    model_ = model.HYBRIDVI(adata=train, gene_indexes=gene_indexes, n_hidden=size_hidden_layer, n_layers=hidden_layers)
+    model_.train(lr=learning_rate)
+    latent = model_.get_latent_representation(adata=test, hybrid=True)
+    test.obsm["X_scvi"] = latent
+    sc.pp.neighbors(test, n_neighbors=10, use_rep="X_scvi")
+    sc.tl.leiden(test, key_added="leiden_scvi", resolution=0.5)
+    pred = test.obs["leiden_scvi"].to_list()
+    pred = [int(x) for x in pred]
+    scores_leiden = clustering_scores(test.obs["labels"], pred)
+    print("final_scores: ", scores_leiden[0], scores_leiden[1], (scores_leiden[0] + scores_leiden[1])/2)
+    
+
+def data(dataset):
+    if dataset=="pbmc":
+        adata = _load_pbmc_dataset(run_setup_anndata=False)
+    elif dataset=="cortex":
+        adata = _load_cortex(run_setup_anndata=False)
+
+    K_cross = 3
+
+    # Find the cell cycle genes in the data
+    cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
+    genes = [x for x in adata.var["gene_symbols"]]
+    s_genes = cell_cycle_genes[:43]
+    g2m_genes = cell_cycle_genes[43:]
+    cell_cycle_genes = [x for x in cell_cycle_genes if x in genes]
+    adata.var["von_mises"] = "false"
+    for gene in cell_cycle_genes:
+        adata.var.loc[adata.var["gene_symbols"] == gene, "von_mises"] = "true"
+    gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
+    adata_cross = adata[:int((len(adata)*2)/K_cross), :]
+    adata_train_best_model = adata[int((len(adata)*2)/K_cross):, :]
+    size = int(len(adata_cross)/K_cross)
+    adata_1 = adata_cross[:size,:]
+    adata_2 = adata_cross[size:2*size,:]
+    adata_3 = adata_cross[2*size:,:]
+    data = [adata_1, adata_2, adata_3]
+    for d in range(len(data)):
+        da = data[d].copy()
+        _setup_anndata(da, batch_key="batch", labels_key="labels")
+        data[d] = da 
+
+    data_cross = [data[1], data[2], data[3]]
+    return gene_indexes_von_mises, data_cross, K_cross, adata_train_best_model
+
+gene_indexes_von_mises, data_cross, K_cross, _ = data("cortex", False)
+for i in range(48):
+    start_cross_valid(i, gene_indexes_von_mises, data_cross, K_cross)
