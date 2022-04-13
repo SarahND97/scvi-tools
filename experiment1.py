@@ -105,21 +105,49 @@ def final_result(dataset, gene_indexes, data):
     pred = [int(x) for x in pred]
     scores_leiden = clustering_scores(test.obs["labels"], pred)
     print("final_scores: ", scores_leiden[0], scores_leiden[1], (scores_leiden[0] + scores_leiden[1])/2)
-    
 
-def data(dataset):
-    if dataset=="pbmc":
-        adata = _load_pbmc_dataset(run_setup_anndata=False)
-    elif dataset=="cortex":
-        adata = _load_cortex(run_setup_anndata=False)
-
-    K_cross = 3
+def data_cortex():
+    adata = _load_cortex(run_setup_anndata=False)
+    K_cross = 2
 
     # Find the cell cycle genes in the data
     cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
+    adata.var_names = adata.var_names.str.upper()
+    genes = [x for x in adata.var_names]
+    cell_cycle_genes = [x for x in cell_cycle_genes if x in genes]
+    adata.var["von_mises"] = "false"
+    for gene in cell_cycle_genes:
+        adata.var.loc[adata.var_names == gene, "von_mises"] = "true"
+    gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
+    label_indexes = []
+    for label in set(adata.obs["labels"]):
+        label_indexes.append(np.where(adata.obs["labels"] == label)[0])
+
+    adata_cross = []
+    adata_train_best_model = []
+    for i in range(set(adata.obs["labels"])):
+        label = adata[label_indexes[i]:,]
+        size = int(len(label)/2)
+        adata_cross.extend(label[:size,:])
+        adata_train_best_model.extend(label[size:,:])
+
+    size = int(len(adata_cross)/K_cross)
+    adata_1 = adata_cross[:size,:]
+    adata_2 = adata_cross[size:,:]
+    data = [adata_1, adata_2]
+    for d in range(len(data)):
+        da = data[d].copy()
+        _setup_anndata(da, labels_key="labels")
+        data[d] = da
+
+    return gene_indexes_von_mises, data, K_cross, adata_train_best_model
+
+def data_pbmc():
+    adata = _load_pbmc_dataset(run_setup_anndata=False)
+    K_cross = 3
+    # Find the cell cycle genes in the data
+    cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
     genes = [x for x in adata.var["gene_symbols"]]
-    s_genes = cell_cycle_genes[:43]
-    g2m_genes = cell_cycle_genes[43:]
     cell_cycle_genes = [x for x in cell_cycle_genes if x in genes]
     adata.var["von_mises"] = "false"
     for gene in cell_cycle_genes:
@@ -137,9 +165,8 @@ def data(dataset):
         _setup_anndata(da, batch_key="batch", labels_key="labels")
         data[d] = da 
 
-    data_cross = [data[1], data[2], data[3]]
-    return gene_indexes_von_mises, data_cross, K_cross, adata_train_best_model
+    return gene_indexes_von_mises, data, K_cross, adata_train_best_model
 
-gene_indexes_von_mises, data_cross, K_cross, _ = data("cortex")
-for i in range(48):
-    start_cross_valid(i, gene_indexes_von_mises, data_cross, K_cross)
+gene_indexes_von_mises, data_cross, K_cross, _ = data_cortex()
+# for i in range(48):
+#     start_cross_valid(i, gene_indexes_von_mises, data_cross, K_cross)
