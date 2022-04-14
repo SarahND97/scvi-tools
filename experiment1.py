@@ -1,4 +1,5 @@
 from scvi import model
+import anndata
 from sklearn.metrics import normalized_mutual_info_score as NMI
 from sklearn.metrics import adjusted_rand_score as ARI
 from scvi.data._built_in_data._pbmc import _load_pbmc_dataset
@@ -6,6 +7,9 @@ from scvi.data._built_in_data._cortex import _load_cortex
 from scvi.data._anndata import _setup_anndata
 import scanpy as sc
 import numpy as np
+
+def concatenate_adatas(list_adata):
+    return anndata.AnnData.concatenate(*list_adata,batch_key='batch')
 
 def create_parameters_file():
     learning_rate = [0.0001, 0.0002, 0.0003, 0.0004, 0.0005, 0.0006]
@@ -84,9 +88,13 @@ def final_result(dataset, gene_indexes, data):
         size_hidden_layer = 256
 
     elif dataset=="cortex":
-       adata = _load_cortex(run_setup_anndata=False)
+        # remember to change these after cross_valid
+        learning_rate = 0.0001
+        hidden_layers = 2
+        size_hidden_layer = 256
+       
 
-    size = int((len(adata)*2)/3)
+    size = int((len(data)*2)/3)
     train = data[:size,:]
     test = data[size:,:]
     data = [train,test]
@@ -119,21 +127,20 @@ def data_cortex():
     for gene in cell_cycle_genes:
         adata.var.loc[adata.var_names == gene, "von_mises"] = "true"
     gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
-    label_indexes = []
-    for label in set(adata.obs["labels"]):
-        label_indexes.append(np.where(adata.obs["labels"] == label)[0])
 
-    adata_cross = []
+    adata_1 = []
+    adata_2 = []
     adata_train_best_model = []
-    for i in range(set(adata.obs["labels"])):
-        label = adata[label_indexes[i]:,]
-        size = int(len(label)/2)
-        adata_cross.extend(label[:size,:])
-        adata_train_best_model.extend(label[size:,:])
+    for label in set(adata.obs["labels"]):
+         label_list = adata[np.where(adata.obs["labels"] == label)[0]]
+         size = int(len(label_list)/2)
+         adata_1.append(label_list[:int(size/2),:])
+         adata_2.append(label_list[int(size/2):size,:])
+         adata_train_best_model.append(label_list[size:,:])
 
-    size = int(len(adata_cross)/K_cross)
-    adata_1 = adata_cross[:size,:]
-    adata_2 = adata_cross[size:,:]
+    adata_1 = concatenate_adatas(adata_1)
+    adata_2 = concatenate_adatas(adata_2)
+    
     data = [adata_1, adata_2]
     for d in range(len(data)):
         da = data[d].copy()
@@ -168,5 +175,5 @@ def data_pbmc():
     return gene_indexes_von_mises, data, K_cross, adata_train_best_model
 
 gene_indexes_von_mises, data_cross, K_cross, _ = data_cortex()
-# for i in range(48):
-#     start_cross_valid(i, gene_indexes_von_mises, data_cross, K_cross)
+for i in range(48):
+    start_cross_valid(i, gene_indexes_von_mises, data_cross, K_cross)
