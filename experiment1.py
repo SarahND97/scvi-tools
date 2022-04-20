@@ -7,6 +7,7 @@ from scvi.data._built_in_data._cortex import _load_cortex
 from scvi.data._anndata import _setup_anndata
 import scanpy as sc
 import numpy as np
+from scipy.stats import wilcoxon 
 
 def concatenate_adatas(list_adata):
     return anndata.AnnData.concatenate(*list_adata,batch_key='batch')
@@ -91,7 +92,7 @@ def final_result_scvi(train, test):
     pred = [int(x) for x in pred]
     scores_leiden = clustering_scores(test.obs["labels"], pred)
     print("final_scores_: " ,scores_leiden[0], scores_leiden[1], (scores_leiden[0] + scores_leiden[1])/2)
-       
+    return [scores_leiden[0], scores_leiden[1], (scores_leiden[0] + scores_leiden[1])/2]
 
 
 def final_result_hybrid(dataset, gene_indexes, train, test):
@@ -120,6 +121,7 @@ def final_result_hybrid(dataset, gene_indexes, train, test):
     pred = [int(x) for x in pred]
     scores_leiden = clustering_scores(test.obs["labels"], pred)
     print("final_scores_"+dataset+": ",scores_leiden[0], scores_leiden[1], (scores_leiden[0] + scores_leiden[1])/2)
+    return [scores_leiden[0], scores_leiden[1], (scores_leiden[0] + scores_leiden[1])/2]
        
 def data_cortex():
     adata = _load_cortex(run_setup_anndata=False)
@@ -203,15 +205,17 @@ def data_pbmc():
 
     return gene_indexes_von_mises, data_cross, K_cross, data[3], data[4]
 
+# get indexes and split up datasets
 gene_indexes_von_mises_cortex, _, _, train_cortex, test_cortex = data_cortex()
 gene_indexes_von_mises_pbmc, _, _, train_pbmc, test_pbmc = data_pbmc()
-#
-print("pbmc")
-final_result_scvi(train_pbmc, test_pbmc)
-final_result_hybrid("pbmc", gene_indexes_von_mises_pbmc, train_pbmc, test_pbmc)
-print("cortex")
-final_result_scvi(train_cortex, test_cortex)
-final_result_hybrid("cortex", gene_indexes_von_mises_cortex, train_cortex, test_cortex)
-# for i in range(48):
-#     start_cross_valid(i, gene_indexes_von_mises, data_cross, K_cross
-# )
+
+# when optimal parameters have been found get the final results from pbmc and cortex datasets
+results_scvi_pbmc = final_result_scvi(train_pbmc, test_pbmc)
+results_hybrid_pbmc = final_result_hybrid("pbmc", gene_indexes_von_mises_pbmc, train_pbmc, test_pbmc)
+results_scvi_cortex = final_result_scvi(train_cortex, test_cortex)
+results_hybrid_cortex = final_result_hybrid("cortex", gene_indexes_von_mises_cortex, train_cortex, test_cortex)
+# add the results from the respective models
+results_scvi = results_scvi_pbmc.extend(results_scvi_cortex)
+results_hybrid = results_hybrid_pbmc.extend(results_hybrid_cortex)
+# get the results of the wilcoxon test
+print("wilcoxon_results: ", wilcoxon(x=results_scvi, y=results_hybrid))
