@@ -77,7 +77,24 @@ def start_cross_valid(line_nr, gene_indexes_von_mises, data_cross, K_cross):
     cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data_cross, K_cross)
     f.close()
 
-def final_result(dataset, gene_indexes, data):
+def final_result_scvi(train, test):
+    learning_rate = 0.0004
+    hidden_layers = 1
+    size_hidden_layer = 128
+    model_ = model.SCVI(adata=train, n_hidden=size_hidden_layer, n_layers=hidden_layers)
+    model_.train(lr=learning_rate)
+    latent = model_.get_latent_representation(adata=test, hybrid=False)
+    test.obsm["X_scvi"] = latent
+    sc.pp.neighbors(test, n_neighbors=10, use_rep="X_scvi")
+    sc.tl.leiden(test, key_added="leiden_scvi", resolution=0.5)
+    pred = test.obs["leiden_scvi"].to_list()
+    pred = [int(x) for x in pred]
+    scores_leiden = clustering_scores(test.obs["labels"], pred)
+    print("final_scores_: " ,scores_leiden[0], scores_leiden[1], (scores_leiden[0] + scores_leiden[1])/2)
+       
+
+
+def final_result_hybrid(dataset, gene_indexes, train, test):
     learning_rate = 0
     hidden_layers = 0 
     size_hidden_layer = 0
@@ -89,20 +106,10 @@ def final_result(dataset, gene_indexes, data):
 
     elif dataset=="cortex":
         # remember to change these after cross_valid
-        learning_rate = 0.0001
-        hidden_layers = 2
+        learning_rate = 0.0006
+        hidden_layers = 1
         size_hidden_layer = 256
-       
-
-    size = int((len(data)*2)/3)
-    train = data[:size,:]
-    test = data[size:,:]
-    data = [train,test]
-    for d in range(len(data)):
-        da = data[d].copy()
-        _setup_anndata(da, batch_key="batch", labels_key="labels")
-        data[d] = da 
-
+    
     model_ = model.HYBRIDVI(adata=train, gene_indexes=gene_indexes, n_hidden=size_hidden_layer, n_layers=hidden_layers)
     model_.train(lr=learning_rate)
     latent = model_.get_latent_representation(adata=test, hybrid=True)
@@ -112,8 +119,8 @@ def final_result(dataset, gene_indexes, data):
     pred = test.obs["leiden_scvi"].to_list()
     pred = [int(x) for x in pred]
     scores_leiden = clustering_scores(test.obs["labels"], pred)
-    print("final_scores: ", scores_leiden[0], scores_leiden[1], (scores_leiden[0] + scores_leiden[1])/2)
-
+    print("final_scores_"+dataset+": ",scores_leiden[0], scores_leiden[1], (scores_leiden[0] + scores_leiden[1])/2)
+       
 def data_cortex():
     adata = _load_cortex(run_setup_anndata=False)
     K_cross = 2
@@ -131,23 +138,31 @@ def data_cortex():
     adata_1 = []
     adata_2 = []
     adata_train_best_model = []
+    adata_test_best_model = []
     for label in set(adata.obs["labels"]):
          label_list = adata[np.where(adata.obs["labels"] == label)[0]]
          size = int(len(label_list)/2)
+         total = len(label_list)
          adata_1.append(label_list[:int(size/2),:])
          adata_2.append(label_list[int(size/2):size,:])
-         adata_train_best_model.append(label_list[size:,:])
+         adata_train_best_model.append(label_list[size:int(9*total/10),:])
+         adata_test_best_model.append(label_list[int(9*total/10):,:])
 
     adata_1 = concatenate_adatas(adata_1)
     adata_2 = concatenate_adatas(adata_2)
-    
-    data = [adata_1, adata_2]
+    adata_train_best_model = concatenate_adatas(adata_train_best_model)
+    adata_test_best_model = concatenate_adatas(adata_test_best_model)
+    data = [adata_1, adata_2, adata_train_best_model, adata_test_best_model]
     for d in range(len(data)):
         da = data[d].copy()
         _setup_anndata(da, labels_key="labels")
         data[d] = da
+    print("train")
+    _setup_anndata(adata_train_best_model, labels_key="labels")
+    print("test")
+    _setup_anndata(adata_test_best_model, labels_key="labels")
 
-    return gene_indexes_von_mises, data, K_cross, adata_train_best_model
+    return gene_indexes_von_mises, data, K_cross, adata_train_best_model, adata_test_best_model
 
 def data_pbmc():
     adata = _load_pbmc_dataset(run_setup_anndata=False)
@@ -161,19 +176,40 @@ def data_pbmc():
         adata.var.loc[adata.var["gene_symbols"] == gene, "von_mises"] = "true"
     gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
     adata_cross = adata[:int((len(adata)*2)/K_cross), :]
-    adata_train_best_model = adata[int((len(adata)*2)/K_cross):, :]
     size = int(len(adata_cross)/K_cross)
     adata_1 = adata_cross[:size,:]
     adata_2 = adata_cross[size:2*size,:]
     adata_3 = adata_cross[2*size:,:]
-    data = [adata_1, adata_2, adata_3]
+    adata_model = adata[int((len(adata)*2)/K_cross):,:]
+    adata_train_best_model = []
+    adata_test_best_model = []
+    for label in set(adata_model.obs["labels"]):
+        label_list = adata_model[np.where(adata_model.obs["labels"] == label)[0]]
+        total = len(label_list)
+        print(total)
+        adata_train_best_model.append(label_list[:int(7*total/10),:])
+        adata_test_best_model.append(label_list[int(7*total/10):,:])
+    
+    adata_train_best_model = concatenate_adatas(adata_train_best_model)
+    adata_test_best_model = concatenate_adatas(adata_test_best_model)
+    
+    
+    data = [adata_1, adata_2, adata_3, adata_train_best_model, adata_test_best_model]
     for d in range(len(data)):
         da = data[d].copy()
         _setup_anndata(da, batch_key="batch", labels_key="labels")
         data[d] = da 
+    data_cross = data[:3]
 
-    return gene_indexes_von_mises, data, K_cross, adata_train_best_model
+    return gene_indexes_von_mises, data_cross, K_cross, data[3], data[4]
 
-gene_indexes_von_mises, data_cross, K_cross, _ = data_cortex()
-for i in range(48):
-    start_cross_valid(i, gene_indexes_von_mises, data_cross, K_cross)
+# gene_indexes_von_mises_cortex, _, _, train_cortex, test_cortex = data_cortex()
+gene_indexes_von_mises_pbmc, _, _, train_pbmc, test_pbmc = data_pbmc()
+#final_result("cortex", gene_indexes_von_mises_cortex, train_cortex, test_cortex)
+# final_result_hybrid("pbmc", gene_indexes_von_mises_pbmc, train_pbmc, test_pbmc)
+print("pbmc")
+final_result_scvi(train_pbmc, test_pbmc)
+#print("cortex")
+#final_result_scvi(train_cortex, test_cortex)
+# for i in range(48):
+#     start_cross_valid(i, gene_indexes_von_mises, data_cross, K_cross)
