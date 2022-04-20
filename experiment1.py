@@ -32,7 +32,7 @@ def clustering_scores(labels_true, labels_pred):
 
 # Find parameters 
 # the parameters are learning rate, layers, size of layers
-def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data, K):
+def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data, K, nn):
     results = []
     average_nmi = 0
     average_ari = 0
@@ -47,7 +47,7 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
         model_.train(lr=learning_rate)
         latent = model_.get_latent_representation(adata=test_i, hybrid=True)
         test_i.obsm["X_scvi"] = latent
-        sc.pp.neighbors(test_i, n_neighbors=10, use_rep="X_scvi")
+        sc.pp.neighbors(test_i, n_neighbors=nn, use_rep="X_scvi")
         sc.tl.leiden(test_i, key_added="leiden_scvi", resolution=0.5)
         pred = test_i.obs["leiden_scvi"].to_list()
         pred = [int(x) for x in pred]
@@ -66,7 +66,7 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
     f2.close()
     print(average)
 
-def start_cross_valid(line_nr, gene_indexes_von_mises, data_cross, K_cross):
+def start_cross_valid(line_nr, gene_indexes_von_mises, data_cross, K_cross, nn):
     file = "input/parameters.in"
     f = open(file, "r")
     lines = f.readlines()
@@ -74,10 +74,10 @@ def start_cross_valid(line_nr, gene_indexes_von_mises, data_cross, K_cross):
     learning_rate = float(line[0])
     hidden_layers = int(line[1])
     size_hidden_layer = int(line[2])
-    cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data_cross, K_cross)
+    cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data_cross, K_cross, nn)
     f.close()
 
-def final_result_scvi(train, test):
+def final_result_scvi(train, test, nn):
     learning_rate = 0.0004
     hidden_layers = 1
     size_hidden_layer = 128
@@ -85,7 +85,7 @@ def final_result_scvi(train, test):
     model_.train(lr=learning_rate)
     latent = model_.get_latent_representation(adata=test, hybrid=False)
     test.obsm["X_scvi"] = latent
-    sc.pp.neighbors(test, n_neighbors=10, use_rep="X_scvi")
+    sc.pp.neighbors(test, n_neighbors=nn, use_rep="X_scvi")
     sc.tl.leiden(test, key_added="leiden_scvi", resolution=0.5)
     pred = test.obs["leiden_scvi"].to_list()
     pred = [int(x) for x in pred]
@@ -98,23 +98,26 @@ def final_result_hybrid(dataset, gene_indexes, train, test):
     learning_rate = 0
     hidden_layers = 0 
     size_hidden_layer = 0
+    nn = 0
 
     if dataset=="pbmc":
         learning_rate = 0.0001
         hidden_layers = 2
         size_hidden_layer = 256
+        nn = 9
 
     elif dataset=="cortex":
         # remember to change these after cross_valid
         learning_rate = 0.0006
         hidden_layers = 1
         size_hidden_layer = 256
+        nn=7
     
     model_ = model.HYBRIDVI(adata=train, gene_indexes=gene_indexes, n_hidden=size_hidden_layer, n_layers=hidden_layers)
     model_.train(lr=learning_rate)
     latent = model_.get_latent_representation(adata=test, hybrid=True)
     test.obsm["X_scvi"] = latent
-    sc.pp.neighbors(test, n_neighbors=10, use_rep="X_scvi")
+    sc.pp.neighbors(test, n_neighbors=nn, use_rep="X_scvi")
     sc.tl.leiden(test, key_added="leiden_scvi", resolution=0.5)
     pred = test.obs["leiden_scvi"].to_list()
     pred = [int(x) for x in pred]
@@ -203,13 +206,14 @@ def data_pbmc():
 
     return gene_indexes_von_mises, data_cross, K_cross, data[3], data[4]
 
-# gene_indexes_von_mises_cortex, _, _, train_cortex, test_cortex = data_cortex()
+gene_indexes_von_mises_cortex, _, _, train_cortex, test_cortex = data_cortex()
 gene_indexes_von_mises_pbmc, _, _, train_pbmc, test_pbmc = data_pbmc()
-#final_result("cortex", gene_indexes_von_mises_cortex, train_cortex, test_cortex)
-# final_result_hybrid("pbmc", gene_indexes_von_mises_pbmc, train_pbmc, test_pbmc)
+#
 print("pbmc")
-final_result_scvi(train_pbmc, test_pbmc)
-#print("cortex")
-#final_result_scvi(train_cortex, test_cortex)
+final_result_scvi(train_pbmc, test_pbmc, 7)
+final_result_hybrid("pbmc", gene_indexes_von_mises_pbmc, train_pbmc, test_pbmc)
+print("cortex")
+final_result_scvi(train_cortex, test_cortex, 9)
+final_result_hybrid("cortex", gene_indexes_von_mises_cortex, train_cortex, test_cortex)
 # for i in range(48):
-#     start_cross_valid(i, gene_indexes_von_mises, data_cross, K_cross)
+#     start_cross_valid(i, gene_indexes_von_mises, data_cross, K_cross, nn)
