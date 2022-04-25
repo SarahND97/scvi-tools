@@ -33,13 +33,13 @@ def clustering_scores(labels_true, labels_pred):
 
 # Find parameters 
 # the parameters are learning rate, layers, size of layers
-def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data, K):
+def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data, K, filename):
     results = []
     average_nmi = 0
     average_ari = 0
     parameters = [learning_rate, hidden_layers, size_hidden_layer]
-    f = open("output/average_results.txt","a")
-    f2 = open("output/results.txt","a")
+    f = open("output/" + filename + "_average_results.txt","a")
+    f2 = open("output/" + filename + "_results.txt","a")
     for i in range(K):
         data_ = list(data)
         test_i = data_[i]
@@ -125,7 +125,6 @@ def final_result_hybrid(dataset, gene_indexes, train, test):
        
 def data_cortex():
     adata = _load_cortex(run_setup_anndata=False)
-    K_cross = 2
 
     # Find the cell cycle genes in the data
     cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
@@ -154,17 +153,18 @@ def data_cortex():
     adata_2 = concatenate_adatas(adata_2)
     adata_train_best_model = concatenate_adatas(adata_train_best_model)
     adata_test_best_model = concatenate_adatas(adata_test_best_model)
-    data = [adata_1, adata_2, adata_train_best_model, adata_test_best_model]
+    adata_model = concatenate_adatas([adata_train_best_model,adata_test_best_model])
+    data = [adata_1, adata_2] #adata_train_best_model, adata_test_best_model]
     for d in range(len(data)):
         da = data[d].copy()
         _setup_anndata(da, labels_key="labels")
         data[d] = da
-    print("train")
-    _setup_anndata(adata_train_best_model, labels_key="labels")
-    print("test")
-    _setup_anndata(adata_test_best_model, labels_key="labels")
+    # print("train")
+    # _setup_anndata(adata_train_best_model, labels_key="labels")
+    # print("test")
+    # _setup_anndata(adata_test_best_model, labels_key="labels")
 
-    return gene_indexes_von_mises, data, K_cross, adata_train_best_model, adata_test_best_model
+    return gene_indexes_von_mises, data, adata_model#adata_train_best_model, adata_test_best_model
 
 def data_pbmc():
     adata = _load_pbmc_dataset(run_setup_anndata=False)
@@ -183,39 +183,72 @@ def data_pbmc():
     adata_2 = adata_cross[size:2*size,:]
     adata_3 = adata_cross[2*size:,:]
     adata_model = adata[int((len(adata)*2)/K_cross):,:]
-    adata_train_best_model = []
-    adata_test_best_model = []
-    for label in set(adata_model.obs["labels"]):
-        label_list = adata_model[np.where(adata_model.obs["labels"] == label)[0]]
-        total = len(label_list)
-        print(total)
-        adata_train_best_model.append(label_list[:int(7*total/10),:])
-        adata_test_best_model.append(label_list[int(7*total/10):,:])
+    # adata_train_best_model = []
+    # adata_test_best_model = []
+    # for label in set(adata_model.obs["labels"]):
+    #     label_list = adata_model[np.where(adata_model.obs["labels"] == label)[0]]
+    #     total = len(label_list)
+    #     print(total)
+    #     adata_train_best_model.append(label_list[:int(7*total/10),:])
+    #     adata_test_best_model.append(label_list[int(7*total/10):,:])
     
-    adata_train_best_model = concatenate_adatas(adata_train_best_model)
-    adata_test_best_model = concatenate_adatas(adata_test_best_model)
+    # adata_train_best_model = concatenate_adatas(adata_train_best_model)
+    # adata_test_best_model = concatenate_adatas(adata_test_best_model)
     
     
-    data = [adata_1, adata_2, adata_3, adata_train_best_model, adata_test_best_model]
+    data = [adata_1, adata_2, adata_3]#, adata_train_best_model, adata_test_best_model]
     for d in range(len(data)):
         da = data[d].copy()
         _setup_anndata(da, batch_key="batch", labels_key="labels")
         data[d] = da 
     data_cross = data[:3]
 
-    return gene_indexes_von_mises, data_cross, K_cross, data[3], data[4]
+    return gene_indexes_von_mises, data_cross, K_cross, adata_model#data[3], data[4], adata_model
 
+def divide_data(data, K):
+    divided_data = [[] for _ in range(K)]
+    # make sure that there is an equal amount of labels in each dataset
+    for i in range(K):
+        for label in set(data.obs["labels"]):
+            label_list = data[np.where(data.obs["labels"] == label)[0]]
+            total = len(label_list)
+            size = int(total/K)
+            divided_data[i].append(label_list[i*size:size*(i+1),:])
+
+    divided_data = [concatenate_adatas(d) for d in divided_data]
+    divided_data = [_setup_anndata(da.copy(), labels_key="labels") for da in divided_data]
+    # for i in range(len(divided_data)):
+    #     da = divided_data[i].copy()
+    #     _setup_anndata(da, labels_key="labels")
+    #     divided_data[i] = da 
+    return divided_data
+
+gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
+K = 5
+data = divide_data(model_data, K)
+cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data, K, "pbmc_test")
+
+gene_indexes_von_mises_cortex, _, model_data = data_cortex()
+K = 5
+data = divide_data(model_data, K)
+cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data, K, "cortex_test")
 # get indexes and split up datasets
-gene_indexes_von_mises_cortex, _, _, train_cortex, test_cortex = data_cortex()
-gene_indexes_von_mises_pbmc, _, _, train_pbmc, test_pbmc = data_pbmc()
+# gene_indexes_von_mises_cortex, _, _, train_cortex, test_cortex = data_cortex()
+# gene_indexes_von_mises_pbmc, _, _, train_pbmc, test_pbmc = data_pbmc()
 
-# when optimal parameters have been found get the final results from pbmc and cortex datasets
-results_scvi_pbmc = final_result_scvi(train_pbmc, test_pbmc)
-results_hybrid_pbmc = final_result_hybrid("pbmc", gene_indexes_von_mises_pbmc, train_pbmc, test_pbmc)
-results_scvi_cortex = final_result_scvi(train_cortex, test_cortex)
-results_hybrid_cortex = final_result_hybrid("cortex", gene_indexes_von_mises_cortex, train_cortex, test_cortex)
-# add the results from the respective models
-results_scvi = results_scvi_pbmc.extend(results_scvi_cortex)
-results_hybrid = results_hybrid_pbmc.extend(results_hybrid_cortex)
+# # when optimal parameters have been found get the final results from pbmc and cortex datasets
+# results_scvi_pbmc = final_result_scvi(train_pbmc, test_pbmc)
+# results_hybrid_pbmc = final_result_hybrid("pbmc", gene_indexes_von_mises_pbmc, train_pbmc, test_pbmc)
+# results_scvi_cortex = final_result_scvi(train_cortex, test_cortex)
+# results_hybrid_cortex = final_result_hybrid("cortex", gene_indexes_von_mises_cortex, train_cortex, test_cortex)
+# # add the results from the respective models
+# results_scvi = results_scvi_pbmc.extend(results_scvi_cortex)
+# results_hybrid = results_hybrid_pbmc.extend(results_hybrid_cortex)
 # get the results of the wilcoxon test
-print("wilcoxon_results: ", wilcoxon(x=results_scvi, y=results_hybrid))
+#print("wilcoxon_results: ", wilcoxon(x=[0.3098168467310414, 0.27854419331952673, 0.29418052002528405, 0.7726282070586233, 0.782650445286855, 0.7926726835150868], 
+#y=[0.6044130813899719, 0.4329071191819831, 0.5186601002859774, 0.7219028131308766, 0.7129907323822228, 0.7174467727565497]))
+
+# final_scores_:  0.3098168467310414, 0.27854419331952673, 0.29418052002528405
+# final_scores_pbmc:  0.6044130813899719, 0.4329071191819831, 0.5186601002859774
+# final_scores_:  0.7926726835150868, 0.7726282070586233, 0.782650445286855
+# final_scores_cortex:  0.7219028131308766, 0.7129907323822228, 0.7174467727565497
