@@ -67,6 +67,41 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
     f2.close()
     print(average)
 
+def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, filename):
+    results = []
+    average_nmi = 0
+    average_ari = 0
+    parameters = [learning_rate, hidden_layers, size_hidden_layer]
+    f = open("output/" + filename + "_average_results.txt","a")
+    f2 = open("output/" + filename + "_results.txt","a")
+    for i in range(K):
+        data_ = list(data)
+        test_i = data_[i]
+        train_i = data_.pop(i)
+        model_ = model.SCVI(adata=train_i, n_hidden=size_hidden_layer, n_layers=hidden_layers)
+        model_.train(lr=learning_rate)
+        latent = model_.get_latent_representation(adata=test_i, hybrid=False)
+        test_i.obsm["X_scvi"] = latent
+        sc.pp.neighbors(test_i, use_rep="X_scvi")
+        sc.tl.leiden(test_i, key_added="leiden_scvi", resolution=0.5)
+        pred = test_i.obs["leiden_scvi"].to_list()
+        pred = [int(x) for x in pred]
+        scores_leiden = clustering_scores(test_i.obs["labels"], pred)
+        result = [scores_leiden[0], scores_leiden[1]]
+        results.append(result)
+        average_nmi = average_nmi + scores_leiden[0] 
+        average_ari = average_ari + scores_leiden[1]
+
+    # Calculate the average over K-folds 
+    average = [average_nmi/(K), average_ari/(K)]
+    # add results to files
+    f.write(str(parameters) + " " + str(average) + " \n")
+    f2.write(str(parameters) + " " + str(results) + " \n")
+    f.close()
+    f2.close()
+    print(average)
+    
+
 def start_cross_valid(line_nr, gene_indexes_von_mises, data_cross, K_cross):
     file = "input/parameters.in"
     f = open(file, "r")
@@ -223,15 +258,24 @@ def divide_data(data, K):
         divided_data[i] = da 
     return divided_data
 
-gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
-K = 5
-data = divide_data(model_data, K)
-cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data, K, "pbmc_test")
+# gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
+# K = 5
+# data = divide_data(model_data, K)
+# cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data, K, "pbmc_test")
 
-gene_indexes_von_mises_cortex, _, model_data = data_cortex()
+# gene_indexes_von_mises_cortex, _, model_data = data_cortex()
+# K = 5
+# data = divide_data(model_data, K)
+# cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data, K, "cortex_test")
+_, _, _, model_data = data_pbmc()
 K = 5
 data = divide_data(model_data, K)
-cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data, K, "cortex_test")
+cross_valid_scvi(0.0004, 1, 128, data, K, "pbmc_test")
+
+_, _, model_data = data_cortex()
+K = 5
+data = divide_data(model_data, K)
+cross_valid_scvi(0.0004, 1, 128, data, K, "cortex_test")
 # get indexes and split up datasets
 # gene_indexes_von_mises_cortex, _, _, train_cortex, test_cortex = data_cortex()
 # gene_indexes_von_mises_pbmc, _, _, train_pbmc, test_pbmc = data_pbmc()
