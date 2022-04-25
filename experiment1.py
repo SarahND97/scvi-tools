@@ -216,11 +216,11 @@ def divide_data(data, K):
             divided_data[i].append(label_list[i*size:size*(i+1),:])
 
     divided_data = [concatenate_adatas(d) for d in divided_data]
-    divided_data = [_setup_anndata(da.copy(), labels_key="labels") for da in divided_data]
-    # for i in range(len(divided_data)):
-    #     da = divided_data[i].copy()
-    #     _setup_anndata(da, labels_key="labels")
-    #     divided_data[i] = da 
+    # divided_data = [_setup_anndata(da.copy(), batch_key="batch", labels_key="labels") for da in divided_data]
+    for i in range(len(divided_data)):
+        da = divided_data[i].copy()
+        _setup_anndata(da, labels_key="labels")
+        divided_data[i] = da 
     return divided_data
 
 gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
