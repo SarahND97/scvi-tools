@@ -14,9 +14,7 @@ from .base import ArchesMixin, BaseModelClass, RNASeqMixin, VAEMixin
 
 logger = logging.getLogger(__name__)
 
-class HYBRIDVI(
-    RNASeqMixin, VAEMixin, ArchesMixin, UnsupervisedTrainingMixin, BaseModelClass
-):
+class HYBRIDVI(RNASeqMixin, VAEMixin, ArchesMixin, UnsupervisedTrainingMixin, BaseModelClass):
     """
     single-cell Variational Inference [Lopez18]_.
 
@@ -59,19 +57,10 @@ class HYBRIDVI(
     --------
     >>> adata = anndata.read_h5ad(path_to_anndata)
     >>> scvi.model.SCVI.setup_anndata(adata, batch_key="batch")
-    >>> vae = scvi.model.SCVI(adata)
+    >>> vae = scvi.model.HYBRIDVI(adata)
     >>> vae.train()
     >>> adata.obsm["X_scVI"] = vae.get_latent_representation()
     >>> adata.obsm["X_normalized_scVI"] = vae.get_normalized_expression()
-
-    Notes
-    -----
-    See further usage examples in the following tutorials:
-
-    1. :doc:`/tutorials/notebooks/api_overview`
-    2. :doc:`/tutorials/notebooks/harmonization`
-    3. :doc:`/tutorials/notebooks/scarches_scvi_tools`
-    4. :doc:`/tutorials/notebooks/scvi_in_R`
     """
 
     def __init__(
