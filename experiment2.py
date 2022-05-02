@@ -97,6 +97,13 @@ for i in range(len(datasets)):
     # fname = "data/"+datasets[i]+"/filtered_feature_bc_matrix.h5"
     fname = "/corgi/cellbuster/holmes2020/cellranger/"+datasets[i]+"/outs/filtered_feature_bc_matrix.h5"
     adata = sc.read_10x_h5(fname)
+    cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
+    s_genes = cell_cycle_genes[:43]
+    g2m_genes = cell_cycle_genes[43:]
+    cell_cycle_genes = [x for x in cell_cycle_genes if x in adata.var_names]
+    adata.var["von_mises"] = "false"
+    # bad practice need to change
+    adata.var.loc[cell_cycle_genes, "von_mises"] = "true"
     adata.var_names_make_unique()
     adata.obs["dataset"] = datasets[i]
     adata.obs["tech"] = "v2rna"
@@ -117,6 +124,13 @@ for i in range(len(datasets)):
     print(i)
     fname = "/corgi/cellbuster/holmes2020/cellranger/"+datasets[i]+"/outs/filtered_feature_bc_matrix.h5"
     adata = sc.read_10x_h5(fname)
+    cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
+    s_genes = cell_cycle_genes[:43]
+    g2m_genes = cell_cycle_genes[43:]
+    cell_cycle_genes = [x for x in cell_cycle_genes if x in adata.var_names]
+    adata.var["von_mises"] = "false"
+    # bad practice need to change
+    adata.var.loc[cell_cycle_genes, "von_mises"] = "true"
     adata.var_names_make_unique()
     adata.obs["dataset"] = datasets[i]
     adata.obs["tech"] = "v2rna"
@@ -140,6 +154,13 @@ for i in range(len(datasets)):
     print(i)
     fname = "/corgi/cellbuster/stewart2021/processed/"+datasets[i]+"_filtered_feature_bc_matrix.h5"
     adata = sc.read_10x_h5(fname)
+    cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
+    s_genes = cell_cycle_genes[:43]
+    g2m_genes = cell_cycle_genes[43:]
+    cell_cycle_genes = [x for x in cell_cycle_genes if x in adata.var_names]
+    adata.var["von_mises"] = "false"
+    # bad practice need to change
+    adata.var.loc[cell_cycle_genes, "von_mises"] = "true"
     adata.var_names_make_unique()
     adata.obs["dataset"] = datasets[i]
     adata.obs["tech"] = "3prime"
@@ -174,18 +195,8 @@ adata.layers["counts"] = adata.X.copy() # preserve counts
 sc.pp.normalize_total(adata, target_sum=1e4) # here we normalize data 
 sc.pp.log1p(adata)
 adata.raw = adata # freeze the state in `.raw`
-# Find 
-cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
-print(cell_cycle_genes)
-s_genes = cell_cycle_genes[:43]
-g2m_genes = cell_cycle_genes[43:]
-print("adata.var", adata.var_names)
-cell_cycle_genes = [x for x in cell_cycle_genes if x in adata.var_names]
-print("cell_cycle_genes:", len(cell_cycle_genes))
-adata.var["von_mises"] = "false"
-# bad practice need to change
-adata.var.loc[cell_cycle_genes, "von_mises"] = "true"
-gene_indexes_von_mises = (np.where(adata.var['von_mises'] == "true")[0])
+# Find cell cycle genes
+gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
 data.setup_anndata(
     adata,
     layer="counts"
