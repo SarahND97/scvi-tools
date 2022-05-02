@@ -200,13 +200,13 @@ print(adata.obs)
 print(adata.var)
 
 # Hyperparameters from cross-validation result on pbmc
+# model_ = model.HYBRIDVI(adata=adata, gene_indexes=gene_indexes_von_mises, n_hidden=256, n_layers=2)
+# if (path.exists("saved_model/"+name+"hybridvae.model.pkl")):
+#     model_ = torch.load('saved_model/'+name+'hybridvae.model.pkl')
+# else:
 model_ = model.HYBRIDVI(adata=adata, gene_indexes=gene_indexes_von_mises, n_hidden=256, n_layers=2)
-if (path.exists("saved_model/"+name+"hybridvae.model.pkl")):
-    model_ = torch.load('saved_model/'+name+'hybridvae.model.pkl')
-else:
-    model_ = model.HYBRIDVI(adata, gene_indexes_von_mises)
-    model_.train(lr=0.0001)     
-    torch.save(model_,'saved_model/'+name+'hybridvae.model.pkl')
+model_.train(lr=0.0001)     
+torch.save(model_,'saved_model/'+name+'hybridvae.model.pkl')
 
 latent = model_.get_latent_representation(hybrid=True)
 adata.obsm["X_scVI"] = latent
