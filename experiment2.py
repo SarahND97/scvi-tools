@@ -115,8 +115,7 @@ datasets =[
     "SRR11827034",
     "SRR11827035",
     "SRR11827036",
-    "SRR11827037",
-    #"SRR11827038",  #says missing. hmmmmm would be nice to have!
+    "SRR11827037",  
     "SRR11827039",
 ]
 list_adata=[]
@@ -171,12 +170,10 @@ adata_stewart = concatenate_adatas(list_adata)
 list_adata=read_cr(Path("/corgi/cellbuster/bigb"), samplemeta=None)
 
 adata_cellbuster = concatenate_adatas(list_adata)
-print("about to concatenate adatas")
+print("concatenate adatas")
 list_adata = [adata_cellbuster, adata_stewart, adata_holmes, adata_v2]
 adata = concatenate_adatas(list_adata)
-print("concatenated adatas")
-
-# Might need to add telomers 
+print("done")
 
 sc.pp.filter_cells(adata, min_genes=20)  #lower than usual
 sc.pp.filter_genes(adata, min_cells=3)
@@ -199,7 +196,8 @@ adata.raw = adata # freeze the state in `.raw`
 gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
 data.setup_anndata(
     adata,
-    layer="counts"
+    layer="counts",
+    batch_key = "batch"
 )
 today = date.today()
 now = datetime.now()
@@ -207,17 +205,16 @@ current_date = today.strftime("%d_%m_%Y")
 current_time = now.strftime("%H_%M")
 name = "_" + current_date + "_" + current_time + "_"
 # temp: print to see what adata looks like: 
-print(adata.obs)
-print(adata.var)
 
 # Hyperparameters from cross-validation result on pbmc
 # model_ = model.HYBRIDVI(adata=adata, gene_indexes=gene_indexes_von_mises, n_hidden=256, n_layers=2)
 # if (path.exists("saved_model/"+name+"hybridvae.model.pkl")):
 #     model_ = torch.load('saved_model/'+name+'hybridvae.model.pkl')
 # else:
-model_ = model.HYBRIDVI(adata=adata, gene_indexes=gene_indexes_von_mises, n_hidden=256, n_layers=2)
-model_.train(lr=0.0001)     
-torch.save(model_,'saved_model/'+name+'hybridvae.model.pkl')
+# model_ = model.HYBRIDVI(adata=adata, gene_indexes=gene_indexes_von_mises, n_hidden=256, n_layers=2)
+# model_.train(lr=0.0001)     
+# torch.save(model_,'saved_model/'+name+'hybridvae.model.pkl')
+model_ = torch.load('saved_model/'+'_03_05_2022_09_59_hybridvae'+'.model.pkl')
 
 latent = model_.get_latent_representation(hybrid=True)
 adata.obsm["X_scVI"] = latent
@@ -225,26 +222,49 @@ sc.pp.neighbors(adata, use_rep="X_scVI")
 sc.tl.leiden(adata, key_added="leiden_hybridVI", resolution=0.5)
 pred = adata.obs["leiden_hybridVI"].to_list()
 pred = [int(x) for x in pred]
-print("silhouette score: ", silhouette_score(pred, adata.obs["labels"]))
-diff_exp = model_.differential_expression()
+adata.obs["labels"] = 0
+for i in range(len(adata)):
+    adata.obs.loc[i, "labels"] = pred[i]
+    if (i%1000==0):
+        print("cell number: ",i)
+        print("label: ", pred[i])
+print(adata["labels"])
+print("silhouette score: ", silhouette_score(latent, pred))
+diff_exp = model_.differential_expression(groupby="labels")
+with open("output/" + "diff_expression.txt","a") as f:
+    dfAsString = diff_exp.to_string()
+    f.write(dfAsString)
+f.close()
 print(diff_exp.head())
 
-
 # Taken from: https://colab.research.google.com/drive/1V4BD3SAGDwLzvMUn90FMOHYVNG_iP4Ee?usp=sharing#scrollTo=tSuJcKJAfuZx
-# markers = {}
+markers = {}
 # cats = adata.obs.cell_types.cat.categories
-# for i, c in enumerate(cats):
-#     cid = "{} vs Rest".format(c)
-#     cell_type_df = full_de_res.loc[full_de_res.comparison == cid]
-#     cell_type_df = cell_type_df.sort_values("lfc_mean", ascending=False)
+cats = adata.obs.labels
+for i, c in enumerate(cats):
+    cid = "{} vs Rest".format(c)
+    cell_type_df = diff_exp.loc[diff_exp.comparison == cid]
+    cell_type_df = cell_type_df.sort_values("lfc_mean", ascending=False)
 
-#     # those genes with higher expression in group 1
-#     cell_type_df = cell_type_df[cell_type_df.lfc_mean > 0]
+    # those genes with higher expression in group 1
+    cell_type_df = cell_type_df[cell_type_df.lfc_mean > 0]
 
-#     # significance
-#     cell_type_df = cell_type_df[cell_type_df["bayes_factor"] > 3]
-#     # genes with sufficient expression
-#     cell_type_df = cell_type_df[cell_type_df["non_zeros_proportion1"] > 0.1]
+    # significance
+    cell_type_df = cell_type_df[cell_type_df["bayes_factor"] > 3]
+    # genes with sufficient expression
+    cell_type_df = cell_type_df[cell_type_df["non_zeros_proportion1"] > 0.1]
 
-#     markers[c] = cell_type_df.index.tolist()[:3]
+    markers[c] = cell_type_df.index.tolist()[:3]
 
+sc.tl.dendrogram(adata, groupby="cell_types", use_rep="X_scvi")
+
+sc.pl.dotplot(
+    adata,
+    markers,
+    groupby='cell_types',
+    dendrogram=True,
+    color_map="Blues",
+    swap_axes=True,
+    use_raw=True,
+    standard_scale="var",
+).savefig("output/diff_express.pdf")
