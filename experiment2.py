@@ -215,18 +215,20 @@ name = "_" + current_date + "_" + current_time + "_"
 # if (path.exists("saved_model/"+name+"hybridvae.model.pkl")):
 #     model_ = torch.load('saved_model/'+name+'hybridvae.model.pkl')
 # else:
-# model_ = model.HYBRIDVI(adata=adata, gene_indexes=gene_indexes_von_mises, n_hidden=256, n_layers=2)
-# model_.train(lr=0.0001)     
-# torch.save(model_,'saved_model/'+name+'hybridvae.model.pkl')
-model_ = torch.load('saved_model/'+'_03_05_2022_09_59_hybridvae'+'.model.pkl')
+model_ = model.HYBRIDVI(adata=adata, gene_indexes=gene_indexes_von_mises, n_hidden=256, n_layers=2)
+model_.train(lr=0.0001)     
+torch.save(model_,'saved_model/'+name+'hybridvae.model.pkl')
+# model_ = torch.load('saved_model/'+'_03_05_2022_09_59_hybridvae'+'.model.pkl')
 
+print(adata.obs)
 latent = model_.get_latent_representation(hybrid=True)
 adata.obsm["X_scVI"] = latent
 sc.pp.neighbors(adata, use_rep="X_scVI")
 sc.tl.leiden(adata, key_added="leiden_hybridVI", resolution=0.5)
 pred = adata.obs["leiden_hybridVI"].to_list()
 pred = [int(x) for x in pred]
-# print("silhouette score: ", silhouette_score(latent, pred))
+print(adata.obs)
+print("silhouette score: ", silhouette_score(latent, pred))
 diff_exp = model_.differential_expression(groupby="leiden_hybridVI")
 print(diff_exp.head())
 
@@ -259,17 +261,40 @@ print(gene_markers)
 # sc.pl.rank_genes_groups_heatmap(adata, n_genes=5, key="wilcoxon", groupby="leiden_hybridVI", show_gene_labels=True).savefig("output/heat_map_diff_express.pdf")
 # print("Plotting dotplot 1")
 # sc.pl.rank_genes_groups_dotplot(adata, n_genes=25, key="logreg", groupby="leiden_hybridVI", show_gene_labels=True).savefig("output/dot_plot1_diff_express.pdf")
-# # sc.tl.dendrogram(adata, groupby="leiden_hybridVI", use_rep="X_scvi")
-# print("Plotting dotplot 2")
-# sc.pl.dotplot(
-#     adata,
-#     markers,
-#     groupby='leiden_hybridVI',
-#     #dendrogram=True,
-#     color_map="Blues",
-#     swap_axes=True,
-#     use_raw=True,
-#     standard_scale="var",
-#     show_gene_labels=True
-# ).savefig("output/dot_plot2_diff_express.pdf")
-
+sc.tl.dendrogram(adata, groupby="leiden_hybridVI", use_rep="X_scVI")
+print("Plotting dotplot 2")
+sc.pl.dotplot(
+     adata,
+     gene_markers,
+     groupby='leiden_hybridVI',
+     dendrogram=True,
+     color_map="Blues",
+     swap_axes=True,
+     use_raw=True,
+     standard_scale="var",
+     show_gene_labels=True,
+     save="dp2,pdf"
+)
+print("Plotting heatmap")
+sc.pl.heatmap(
+     adata,
+     gene_markers,
+     groupby='leiden_hybridVI',
+     dendrogram=True,
+     color_map="Blues",
+     swap_axes=True,
+     use_raw=True,
+     standard_scale="var",
+     show_gene_labels=True,
+     save="_2.pdf"
+)
+print("plot matrix")
+sc.pl.matrixplot(
+    adata,
+    gene_markers,
+    groupby='leiden_hybridVI',
+    standard_scale="var",
+    # layer="scvi_expr",
+    dendrogram=True,
+    save="matrix.pdf"
+)
