@@ -100,6 +100,7 @@ for i in range(len(datasets)):
     cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
     s_genes = cell_cycle_genes[:43]
     g2m_genes = cell_cycle_genes[43:]
+    adata.var_names = adata.var_names.str.upper()
     cell_cycle_genes = [x for x in cell_cycle_genes if x in adata.var_names]
     adata.var["von_mises"] = "false"
     # bad practice need to change
@@ -126,6 +127,7 @@ for i in range(len(datasets)):
     cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
     s_genes = cell_cycle_genes[:43]
     g2m_genes = cell_cycle_genes[43:]
+    adata.var_names = adata.var_names.str.upper()
     cell_cycle_genes = [x for x in cell_cycle_genes if x in adata.var_names]
     adata.var["von_mises"] = "false"
     # bad practice need to change
@@ -156,9 +158,9 @@ for i in range(len(datasets)):
     cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
     s_genes = cell_cycle_genes[:43]
     g2m_genes = cell_cycle_genes[43:]
+    adata.var_names = adata.var_names.str.upper()
     cell_cycle_genes = [x for x in cell_cycle_genes if x in adata.var_names]
     adata.var["von_mises"] = "false"
-    # bad practice need to change
     adata.var.loc[cell_cycle_genes, "von_mises"] = "true"
     adata.var_names_make_unique()
     adata.obs["dataset"] = datasets[i]
@@ -272,8 +274,8 @@ sc.pl.dotplot(
      swap_axes=True,
      use_raw=True,
      standard_scale="var",
-     show_gene_labels=True,
-     save="dp2,pdf"
+     #show_gene_labels=True,
+     save="dp2.pdf"
 )
 print("Plotting heatmap")
 sc.pl.heatmap(
@@ -285,7 +287,7 @@ sc.pl.heatmap(
      swap_axes=True,
      use_raw=True,
      standard_scale="var",
-     show_gene_labels=True,
+     #show_gene_labels=True,
      save="_2.pdf"
 )
 print("plot matrix")
@@ -297,4 +299,40 @@ sc.pl.matrixplot(
     # layer="scvi_expr",
     dendrogram=True,
     save="matrix.pdf"
+)
+print("Plotting dotplot 2")
+sc.pl.dotplot(
+     adata,
+     gene_markers,
+     groupby='leiden_hybridVI',
+     dendrogram=True,
+     color_map="Blues",
+     swap_axes=True,
+     use_raw=True,
+     standard_scale="var",
+     #show_gene_labels=True,
+     save="dp2.png"
+)
+print("Plotting heatmap")
+sc.pl.heatmap(
+     adata,
+     gene_markers,
+     groupby='leiden_hybridVI',
+     dendrogram=True,
+     color_map="Blues",
+     swap_axes=True,
+     use_raw=True,
+     standard_scale="var",
+     #show_gene_labels=True,
+     save="_2.png"
+)
+print("plot matrix")
+sc.pl.matrixplot(
+    adata,
+    gene_markers,
+    groupby='leiden_hybridVI',
+    standard_scale="var",
+    # layer="scvi_expr",
+    dendrogram=True,
+    save="matrix.png"
 )
