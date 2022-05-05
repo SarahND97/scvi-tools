@@ -116,11 +116,7 @@ sc.pp.normalize_total(adata, target_sum=1e4) # here we normalize data
 # sc.pp.log1p(adata)
 adata.raw = adata # freeze the state in `.raw`
 # Find cell cycle genes
-gene_indexes_von_mises = []
-gene_indexes_von_mises.extend(np.where(adata.var['von_mises-1'] == "true")[0])
-gene_indexes_von_mises.extend(np.where(adata.var['von_mises-2'] == "true")[0])
-gene_indexes_von_mises.extend(np.where(adata.var['von_mises-3'] == "true")[0])
-gene_indexes_von_mises = np.unique(gene_indexes_von_mises)
+gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
 print(len(gene_indexes_von_mises))
 data.setup_anndata(
     adata,
