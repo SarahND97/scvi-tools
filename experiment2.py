@@ -89,8 +89,13 @@ def concatenate_adatas(list_adata):
 
 list_adata=read_cr(Path("/corgi/cellbuster/bigb"), samplemeta=None)
 
-print("concatenate adatas")
+print("concatenate adatas and find cell cycle genes")
 adata = concatenate_adatas(list_adata)
+cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
+adata.var_names = adata.var_names.str.upper()
+cell_cycle_genes = [x for x in cell_cycle_genes if x in adata.var_names]
+adata.var["von_mises"] = "false"
+adata.var.loc[cell_cycle_genes, "von_mises"] = "true"
 print("done")
 
 sc.pp.filter_cells(adata, min_genes=20)  #lower than usual
