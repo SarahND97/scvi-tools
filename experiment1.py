@@ -134,7 +134,7 @@ def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, f
     print(average)
     
 
-def start_cross_valid(line_nr, gene_indexes_von_mises, data_cross, K_cross):
+def start_cross_valid(line_nr, gene_indexes_von_mises, data_cross, K_cross, filename):
     file = "input/parameters.in"
     f = open(file, "r")
     lines = f.readlines()
@@ -142,7 +142,7 @@ def start_cross_valid(line_nr, gene_indexes_von_mises, data_cross, K_cross):
     learning_rate = float(line[0])
     hidden_layers = int(line[1])
     size_hidden_layer = int(line[2])
-    cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data_cross, K_cross)
+    cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data_cross, K_cross, filename)
     f.close()
 
 def final_result_scvi(train, test):
@@ -250,7 +250,7 @@ def data_bcell():
     sc.pp.filter_genes(adata, min_cells=3)
     adata.layers["counts"] = adata.X.copy()
     adata.raw = adata
-    divided_data = divide_data_without_setup(adata, int(4/10), 2)
+    divided_data = divide_data_without_setup(adata, int(6/10), 2)
     data_cross = divide_data(divided_data[0],3)
     adata_model = divided_data[1]
     return gene_indexes_von_mises, data_cross, K_cross, adata_model
@@ -283,7 +283,7 @@ def data_pbmc():
 
 gene_indexes_von_mises, data_cross, K_cross, adata_model = data_bcell()
 for i in range(48):
-    start_cross_valid(i, gene_indexes_von_mises,data_cross, K_cross)
+    start_cross_valid(i, gene_indexes_von_mises,data_cross, K_cross, "find_parameters_bcell")
 
 
 # gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
