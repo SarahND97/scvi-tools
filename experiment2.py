@@ -12,6 +12,7 @@ import torch
 from datetime import datetime
 from datetime import date
 from sklearn.metrics import silhouette_score
+import muon as mu
 
 def read_one_trust4(adata: anndata.AnnData, basedir: Path, batch: str):
     file_t4 = basedir / "trust4" / batch / "TRUST_possorted_genome_bam_barcode_report.tsv"
@@ -87,10 +88,19 @@ def read_cr(basedir: Path, samplemeta: pd.DataFrame, list_samples=None):
 def concatenate_adatas(list_adata):
     return anndata.AnnData.concatenate(*list_adata,batch_key='batch')
 
-list_adata=read_cr(Path("/corgi/cellbuster/bigb"), samplemeta=None)
-
-print("concatenate adatas and find cell cycle genes")
-adata = concatenate_adatas(list_adata)
+# list_adata=read_cr(Path("/corgi/cellbuster/bigb"), samplemeta=None)
+rna = sc.read_h5ad('/corgi/filippe/rawRNA.h5ad')
+#sc.pp.filter_cells(rna, min_genes=20)  
+#sc.pp.filter_genes(rna, min_cells=3)
+prna = sc.read_h5ad('/corgi/filippe/processedRNA.h5ad')
+# cells with common id
+mdata = mu.MuData({"raw_rna": rna, "processed_rna": prna})
+# remove cells that do not match between prna and rna:
+mu.pp.intersect_obs(mdata)
+print(mdata)
+#print("concatenate adatas and find cell cycle genes")
+#adata = concatenate_adatas(list_adata)
+adata = mdata['raw_rna']
 cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
 adata.var_names = adata.var_names.str.upper()
 cell_cycle_genes = [x for x in cell_cycle_genes if x in adata.var_names]
@@ -101,27 +111,31 @@ print("done")
 sc.pp.filter_cells(adata, min_genes=20)  #lower than usual
 sc.pp.filter_genes(adata, min_cells=3)
 
-adata.layers["counts"] = adata.X.copy() # preserve counts
-sc.pp.normalize_total(adata, target_sum=1e4) # here we normalize data 
-sc.pp.log1p(adata)
-adata.raw = adata # freeze the state in `.raw`
+#adata.layers["counts"] = adata.X.copy() # preserve counts
+#sc.pp.normalize_total(adata, target_sum=1e4) # here we normalize data 
+#sc.pp.log1p(adata)
+#adata.raw = adata # freeze the state in `.raw`
 
 import sys
 sys.path.append("/corgi/SarahND/svci-tools") 
-
-sc.pp.filter_cells(adata, min_genes=20)  #lower than usual
-sc.pp.filter_genes(adata, min_cells=3)
+#sc.pp.filter_cells(adata, min_genes=20)  #lower than usual
+#sc.pp.filter_genes(adata, min_cells=3)
 adata.layers["counts"] = adata.X.copy() # preserve counts
-sc.pp.normalize_total(adata, target_sum=1e4) # here we normalize data 
+#sc.pp.normalize_total(adata, target_sum=1e4) # here we normalize data 
 # sc.pp.log1p(adata)
+print(mdata["processed_rna"].obs["newcelltypes"])
+print(mdata["processed_rna"].obs["bcellonlyres0.7"])
 adata.raw = adata # freeze the state in `.raw`
 # Find cell cycle genes
 gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
 print(len(gene_indexes_von_mises))
+adata.obs["labels"] = mdata["processed_rna"].obs["bcellonlyres0.7"]
+print(adata.obs["labels"])
 data.setup_anndata(
     adata,
     layer="counts",
-    batch_key = "batch"
+    #batch_key = "batch"
+    #batch_key= "batchname"
 )
 today = date.today()
 now = datetime.now()
@@ -129,7 +143,8 @@ current_date = today.strftime("%d_%m_%Y")
 current_time = now.strftime("%H_%M")
 name = "_" + current_date + "_" + current_time + "_"
 # temp: print to see what adata looks like: 
-
+print(adata)
+#print(adata.obs["leiden"])
 # Hyperparameters from cross-validation result on pbmc
 # model_ = model.HYBRIDVI(adata=adata, gene_indexes=gene_indexes_von_mises, n_hidden=256, n_layers=2)
 # if (path.exists("saved_model/"+name+"hybridvae.model.pkl")):
@@ -143,8 +158,16 @@ torch.save(model_,'saved_model/'+name+'hybridvae.model.pkl')
 latent = model_.get_latent_representation(hybrid=True)
 adata.obsm["X_scVI"] = latent
 sc.pp.neighbors(adata, use_rep="X_scVI")
-sc.tl.leiden(adata, key_added="leiden_hybridVI", resolution=0.8)
+sc.tl.leiden(adata, key_added="leiden_hybridVI", resolution=0.7)
 pred = adata.obs["leiden_hybridVI"].to_list()
 pred = [int(x) for x in pred]
-print(adata.obs)
+#f_adata = sc.read_h5ad("../../filippe/python/largerclusters.h5ad")
+#b_cell_adata = sc.read_h5ad("../../filippe/python/bestbcellanalysis.h5ad")
+##b_cell_adata_ = sc.read_h5ad("../../filippe/python/bcellanalysis.h5ad")
+#print("f_adata: ", f_adata.obs)
+#print("b-cell-adata: ", b_cell_adata)
+#print("test leiden: ", b_cell_adata.obs["leiden"])
+#print("b_cell_adata_: ", b_cell_adata_)
+#print("leiden: ", b_cell_adata_.obs["leiden"])
+print(set(pred))
 print("silhouette score: ", silhouette_score(latent, pred))
