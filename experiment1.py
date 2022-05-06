@@ -289,7 +289,7 @@ def data_pbmc():
     return gene_indexes_von_mises, data_cross, K_cross, adata_model
 
 gene_indexes_von_mises, data_cross, K_cross, adata_model = data_bcell()
-for i in range(75):
+for i in range(48):
     start_cross_valid(i, gene_indexes_von_mises,data_cross, K_cross)
 
 
