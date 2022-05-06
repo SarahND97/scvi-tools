@@ -250,7 +250,7 @@ def data_bcell():
     adata.obs["labels"] = mdata["processed_rna"].obs["bcellonlyres0.7"]
     adata.layers["counts"] = adata.X.copy()
     adata.raw = adata
-    divided_data = divide_data_without_setup(adata, int(6/10), 2)
+    divided_data = divide_data_without_setup(adata, int((4*len(adata))/10), 2)
     data_cross = divide_data(divided_data[0],3)
     adata_model = divided_data[1]
     return gene_indexes_von_mises, data_cross, K_cross, adata_model
