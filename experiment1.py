@@ -250,16 +250,9 @@ def data_bcell():
     sc.pp.filter_genes(adata, min_cells=3)
     adata.layers["counts"] = adata.X.copy()
     adata.raw = adata
-    data = divide_data_without_setup(data, int(4/10), 2)
-    data = divide_data(data[0],3)
-    adata_model = data[1]
-    
-    for d in range(len(data)):
-        da = data[d].copy()
-        _setup_anndata(da, batch_key="batch", labels_key="labels")
-        data[d] = da 
-    data_cross = data[:3]
-
+    divided_data = divide_data_without_setup(adata, int(4/10), 2)
+    data_cross = divide_data(divided_data[0],3)
+    adata_model = divided_data[1]
     return gene_indexes_von_mises, data_cross, K_cross, adata_model
 
 def data_pbmc():
