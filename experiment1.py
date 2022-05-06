@@ -242,9 +242,10 @@ def data_bcell():
     adata.var_names = adata.var_names.str.upper()
     cell_cycle_genes = [x for x in cell_cycle_genes if x in adata.var_names]
     gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
-    adata.obs["labels"] = mdata["processed_rna"].obs["bcellonlyres0.7"]
     adata.var["von_mises"] = "false"
+    print(adata.var)
     adata.var.loc[cell_cycle_genes, "von_mises"] = "true"
+    adata.obs["labels"] = mdata["processed_rna"].obs["bcellonlyres0.7"]
     sc.pp.filter_cells(adata, min_genes=20)  #lower than usual
     sc.pp.filter_genes(adata, min_cells=3)
     adata.layers["counts"] = adata.X.copy()
