@@ -32,15 +32,14 @@ def create_parameters_file():
 def clustering_scores(labels_true, labels_pred):
     return [NMI(labels_true, labels_pred), ARI(labels_true, labels_pred)]
 
-def divide_data_without_setup(data, size, K):
+def divide_data_without_setup(data, K):
     divided_data = [[] for _ in range(K)]
     # make sure that there is an equal amount of labels in each dataset
     for i in range(K):
         for label in set(data.obs["labels"]):
             label_list = data[np.where(data.obs["labels"] == label)[0]]
-            if size == 0:
-                total = len(label_list)
-                size = int(total/K)
+            total = len(label_list)
+            size = int(total/K)
             divided_data[i].append(label_list[i*size:size*(i+1),:])
 
     return [concatenate_adatas(d) for d in divided_data]
@@ -250,7 +249,7 @@ def data_bcell():
     adata.obs["labels"] = mdata["processed_rna"].obs["bcellonlyres0.7"]
     adata.layers["counts"] = adata.X.copy()
     adata.raw = adata
-    divided_data = divide_data_without_setup(adata, int((4*len(adata))/10), 2)
+    divided_data = divide_data_without_setup(adata, 2)
     data_cross = divide_data(divided_data[0],3)
     adata_model = divided_data[1]
     return gene_indexes_von_mises, data_cross, K_cross, adata_model
