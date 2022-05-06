@@ -237,6 +237,8 @@ def data_bcell():
     mu.pp.intersect_obs(mdata)
     K_cross = 3
     adata = mdata['raw_rna']
+    sc.pp.filter_cells(adata, min_genes=20)  #lower than usual
+    sc.pp.filter_genes(adata, min_cells=3)
     # Find the cell cycle genes in the data
     cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
     adata.var_names = adata.var_names.str.upper()
@@ -246,8 +248,6 @@ def data_bcell():
     gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
     
     adata.obs["labels"] = mdata["processed_rna"].obs["bcellonlyres0.7"]
-    sc.pp.filter_cells(adata, min_genes=20)  #lower than usual
-    sc.pp.filter_genes(adata, min_cells=3)
     adata.layers["counts"] = adata.X.copy()
     adata.raw = adata
     divided_data = divide_data_without_setup(adata, int(6/10), 2)
