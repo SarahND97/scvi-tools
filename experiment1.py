@@ -8,6 +8,7 @@ from scvi.data._anndata import _setup_anndata
 import scanpy as sc
 import numpy as np
 from scipy.stats import wilcoxon 
+import muon as mu
 
 def concatenate_adatas(list_adata):
     return anndata.AnnData.concatenate(*list_adata,batch_key='batch')
