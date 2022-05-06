@@ -249,9 +249,9 @@ def data_bcell():
     adata.obs["labels"] = mdata["processed_rna"].obs["bcellonlyres0.7"]
     adata.layers["counts"] = adata.X.copy()
     adata.raw = adata
-    divided_data = divide_data_without_setup(adata, 2)
+    divided_data = divide_data_without_setup(adata, 3)
     data_cross = divide_data(divided_data[0],3)
-    adata_model = divided_data[1]
+    adata_model = concatenate_adatas(divided_data[1], divided_data[2])
     return gene_indexes_von_mises, data_cross, K_cross, adata_model
 
 def data_pbmc():
