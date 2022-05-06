@@ -31,6 +31,36 @@ def create_parameters_file():
 def clustering_scores(labels_true, labels_pred):
     return [NMI(labels_true, labels_pred), ARI(labels_true, labels_pred)]
 
+def divide_data_without_setup(data, size, K):
+    divided_data = [[] for _ in range(K)]
+    # make sure that there is an equal amount of labels in each dataset
+    for i in range(K):
+        for label in set(data.obs["labels"]):
+            label_list = data[np.where(data.obs["labels"] == label)[0]]
+            if size == 0:
+                total = len(label_list)
+                size = int(total/K)
+            divided_data[i].append(label_list[i*size:size*(i+1),:])
+
+    return [concatenate_adatas(d) for d in divided_data]
+
+def divide_data(data, K):
+    divided_data = [[] for _ in range(K)]
+    # make sure that there is an equal amount of labels in each dataset
+    for i in range(K):
+        for label in set(data.obs["labels"]):
+            label_list = data[np.where(data.obs["labels"] == label)[0]]
+            total = len(label_list)
+            size = int(total/K)
+            divided_data[i].append(label_list[i*size:size*(i+1),:])
+
+    divided_data = [concatenate_adatas(d) for d in divided_data]
+    for i in range(len(divided_data)):
+        da = divided_data[i].copy()
+        _setup_anndata(da, labels_key="labels")
+        divided_data[i] = da 
+    return divided_data
+
 # Find parameters 
 # the parameters are learning rate, layers, size of layers
 def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data, K, filename):
@@ -38,8 +68,8 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
     average_nmi = 0
     average_ari = 0
     parameters = [learning_rate, hidden_layers, size_hidden_layer]
-    f = open("output/" + filename + "_average_results.txt","a")
-    f2 = open("output/" + filename + "_results.txt","a")
+    f = open("output/" + filename + "bcell_average_results.txt","a")
+    f2 = open("output/" + filename + "bcell_results.txt","a")
     for i in range(K):
         data_ = list(data)
         test_i = data_[i]
@@ -49,7 +79,8 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
         latent = model_.get_latent_representation(adata=test_i, hybrid=True)
         test_i.obsm["X_scvi"] = latent
         sc.pp.neighbors(test_i, use_rep="X_scvi")
-        sc.tl.leiden(test_i, key_added="leiden_scvi", resolution=0.5)
+        # resolution 0.7 for bcell data, 0.5 for rest
+        sc.tl.leiden(test_i, key_added="leiden_scvi", resolution=0.7)
         pred = test_i.obs["leiden_scvi"].to_list()
         pred = [int(x) for x in pred]
         scores_leiden = clustering_scores(test_i.obs["labels"], pred)
@@ -194,12 +225,40 @@ def data_cortex():
         da = data[d].copy()
         _setup_anndata(da, labels_key="labels")
         data[d] = da
-    # print("train")
-    # _setup_anndata(adata_train_best_model, labels_key="labels")
-    # print("test")
-    # _setup_anndata(adata_test_best_model, labels_key="labels")
-
     return gene_indexes_von_mises, data, adata_model#adata_train_best_model, adata_test_best_model
+
+def data_bcell():
+    rna = sc.read_h5ad('/corgi/filippe/rawRNA.h5ad')
+    prna = sc.read_h5ad('/corgi/filippe/processedRNA.h5ad')
+    # cells with common id
+    mdata = mu.MuData({"raw_rna": rna, "processed_rna": prna})
+    # remove cells that do not match between prna and rna:
+    mu.pp.intersect_obs(mdata)
+    K_cross = 3
+    adata = mdata['raw_rna']
+    # Find the cell cycle genes in the data
+    cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
+    adata.var_names = adata.var_names.str.upper()
+    cell_cycle_genes = [x for x in cell_cycle_genes if x in adata.var_names]
+    gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
+    adata.obs["labels"] = mdata["processed_rna"].obs["bcellonlyres0.7"]
+    adata.var["von_mises"] = "false"
+    adata.var.loc[cell_cycle_genes, "von_mises"] = "true"
+    sc.pp.filter_cells(adata, min_genes=20)  #lower than usual
+    sc.pp.filter_genes(adata, min_cells=3)
+    adata.layers["counts"] = adata.X.copy()
+    adata.raw = adata
+    data = divide_data_without_setup(data, int(4/10), 2)
+    data = divide_data(data[0],3)
+    adata_model = data[1]
+    
+    for d in range(len(data)):
+        da = data[d].copy()
+        _setup_anndata(da, batch_key="batch", labels_key="labels")
+        data[d] = da 
+    data_cross = data[:3]
+
+    return gene_indexes_von_mises, data_cross, K_cross, adata_model
 
 def data_pbmc():
     adata = _load_pbmc_dataset(run_setup_anndata=False)
@@ -217,20 +276,7 @@ def data_pbmc():
     adata_1 = adata_cross[:size,:]
     adata_2 = adata_cross[size:2*size,:]
     adata_3 = adata_cross[2*size:,:]
-    adata_model = adata[int((len(adata)*2)/K_cross):,:]
-    # adata_train_best_model = []
-    # adata_test_best_model = []
-    # for label in set(adata_model.obs["labels"]):
-    #     label_list = adata_model[np.where(adata_model.obs["labels"] == label)[0]]
-    #     total = len(label_list)
-    #     print(total)
-    #     adata_train_best_model.append(label_list[:int(7*total/10),:])
-    #     adata_test_best_model.append(label_list[int(7*total/10):,:])
-    
-    # adata_train_best_model = concatenate_adatas(adata_train_best_model)
-    # adata_test_best_model = concatenate_adatas(adata_test_best_model)
-    
-    
+    adata_model = adata[int((len(adata)*2)/K_cross):,:]    
     data = [adata_1, adata_2, adata_3]#, adata_train_best_model, adata_test_best_model]
     for d in range(len(data)):
         da = data[d].copy()
@@ -238,25 +284,12 @@ def data_pbmc():
         data[d] = da 
     data_cross = data[:3]
 
-    return gene_indexes_von_mises, data_cross, K_cross, adata_model#data[3], data[4], adata_model
+    return gene_indexes_von_mises, data_cross, K_cross, adata_model
 
-def divide_data(data, K):
-    divided_data = [[] for _ in range(K)]
-    # make sure that there is an equal amount of labels in each dataset
-    for i in range(K):
-        for label in set(data.obs["labels"]):
-            label_list = data[np.where(data.obs["labels"] == label)[0]]
-            total = len(label_list)
-            size = int(total/K)
-            divided_data[i].append(label_list[i*size:size*(i+1),:])
+gene_indexes_von_mises, data_cross, K_cross, adata_model = data_bcell()
+for i in range(75):
+    start_cross_valid(i, gene_indexes_von_mises,data_cross, K_cross)
 
-    divided_data = [concatenate_adatas(d) for d in divided_data]
-    # divided_data = [_setup_anndata(da.copy(), batch_key="batch", labels_key="labels") for da in divided_data]
-    for i in range(len(divided_data)):
-        da = divided_data[i].copy()
-        _setup_anndata(da, labels_key="labels")
-        divided_data[i] = da 
-    return divided_data
 
 # gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
 # K = 5
@@ -267,15 +300,16 @@ def divide_data(data, K):
 # K = 5
 # data = divide_data(model_data, K)
 # cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data, K, "cortex_test")
-_, _, _, model_data = data_pbmc()
-K = 5
-data = divide_data(model_data, K)
-cross_valid_scvi(0.0004, 1, 128, data, K, "pbmc_test")
+# _, _, _, model_data = data_pbmc()
+# K = 5
+# data = divide_data(model_data, K)
+# cross_valid_scvi(0.0004, 1, 128, data, K, "pbmc_test")
 
-_, _, model_data = data_cortex()
-K = 5
-data = divide_data(model_data, K)
-cross_valid_scvi(0.0004, 1, 128, data, K, "cortex_test")
+# _, _, model_data = data_cortex()
+# K = 5
+# data = divide_data(model_data, K)
+# cross_valid_scvi(0.0004, 1, 128, data, K, "cortex_test")
+
 # get indexes and split up datasets
 # gene_indexes_von_mises_cortex, _, _, train_cortex, test_cortex = data_cortex()
 # gene_indexes_von_mises_pbmc, _, _, train_pbmc, test_pbmc = data_pbmc()
