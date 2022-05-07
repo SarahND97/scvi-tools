@@ -9,6 +9,7 @@ import scanpy as sc
 import numpy as np
 from scipy.stats import wilcoxon 
 import muon as mu
+from sklearn import preprocessing
 
 def concatenate_adatas(list_adata):
     return anndata.AnnData.concatenate(*list_adata,batch_key='batch')
@@ -245,8 +246,10 @@ def data_bcell():
     adata.var["von_mises"] = "false"
     adata.var.loc[cell_cycle_genes, "von_mises"] = "true"
     gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
-    
-    adata.obs["labels"] = mdata["processed_rna"].obs["bcellonlyres0.7"]
+    le = preprocessing.LabelEncoder()
+    le.fit(mdata["processed_rna"].obs["merged"])
+    labels = le.transform(mdata["processed_rna"].obs["merged"])
+    adata.obs["labels"] = labels
     adata.layers["counts"] = adata.X.copy()
     adata.raw = adata
     divided_data = divide_data_without_setup(adata, 3)
