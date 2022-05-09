@@ -267,6 +267,8 @@ results_scvi_pbmc = cross_valid_scvi(0.0004, 1, 128, data_pbmc, K, "pbmc_final_t
 print("wilcoxon_score_pbmc: ", wilcoxon(x=results_hybrid_pbmc, y=results_scvi_pbmc))
 
 # get the combined Wilcoxon results: 
-combined_results_hybrid = results_hybrid_bcell.extend(results_hybrid_cortex.extend(results_hybrid_pbmc))
-combined_results_scVI = results_scVI_bcell.extend(results_scVI_cortex.extend(results_scvi_pbmc))
+results = results_hybrid_cortex.extend(results_hybrid_pbmc)
+combined_results_hybrid = results_hybrid_bcell.extend(results)
+results_ = results_scVI_cortex.extend(results_scvi_pbmc)
+combined_results_scVI = results_scVI_bcell.extend(results)
 print("combined wilcoxon score: ", wilcoxon(x=combined_results_hybrid, y=combined_results_scVI))
