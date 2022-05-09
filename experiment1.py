@@ -80,7 +80,7 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
         latent = model_.get_latent_representation(adata=test_i, hybrid=True)
         test_i.obsm["X_scvi"] = latent
         sc.pp.neighbors(test_i, use_rep="X_scvi")
-        # resolution 1.0 for bcell data, 0.5 for rest
+        # resolution 1.2 for bcell data, 0.5 for rest
         sc.tl.leiden(test_i, key_added="leiden_scvi", resolution=res)
         pred = test_i.obs["leiden_scvi"].to_list()
         pred = [int(x) for x in pred]
@@ -119,7 +119,7 @@ def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, f
         pred = test_i.obs["leiden_scvi"].to_list()
         pred = [int(x) for x in pred]
         scores_leiden = clustering_scores(test_i.obs["labels"], pred)
-        results.extend(results.extend([scores_leiden[0], scores_leiden[1]]))
+        results.extend([scores_leiden[0], scores_leiden[1]])
         average_nmi = average_nmi + scores_leiden[0] 
         average_ari = average_ari + scores_leiden[1]
 
