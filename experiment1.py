@@ -69,8 +69,8 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
     average_nmi = 0
     average_ari = 0
     parameters = [learning_rate, hidden_layers, size_hidden_layer]
-    f = open("output/" + filename + "bcell_average_results.txt","a")
-    f2 = open("output/" + filename + "bcell_results.txt","a")
+    f = open("output/" + filename + "average_results.txt","a")
+    f2 = open("output/" + filename + "results.txt","a")
     for i in range(K):
         data_ = list(data)
         test_i = data_[i]
@@ -85,8 +85,7 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
         pred = test_i.obs["leiden_scvi"].to_list()
         pred = [int(x) for x in pred]
         scores_leiden = clustering_scores(test_i.obs["labels"], pred)
-        result = [scores_leiden[0], scores_leiden[1]]
-        results.append(result)
+        results.extend([scores_leiden[0], scores_leiden[1]])
         average_nmi = average_nmi + scores_leiden[0] 
         average_ari = average_ari + scores_leiden[1]
 
@@ -97,7 +96,7 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
     f2.write(str(parameters) + " " + str(results) + " \n")
     f.close()
     f2.close()
-    print(average)
+    print("parameters tested: ", parameters, "average: ", average, "result each fold: ", results)
     return results
 
 def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, filename):
@@ -105,8 +104,8 @@ def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, f
     average_nmi = 0
     average_ari = 0
     parameters = [learning_rate, hidden_layers, size_hidden_layer]
-    f = open("output/" + filename + "_average_results.txt","a")
-    f2 = open("output/" + filename + "_results.txt","a")
+    f = open("output/" + filename + "average_results.txt","a")
+    f2 = open("output/" + filename + "results.txt","a")
     for i in range(K):
         data_ = list(data)
         test_i = data_[i]
@@ -120,8 +119,7 @@ def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, f
         pred = test_i.obs["leiden_scvi"].to_list()
         pred = [int(x) for x in pred]
         scores_leiden = clustering_scores(test_i.obs["labels"], pred)
-        result = [scores_leiden[0], scores_leiden[1]]
-        results.append(result)
+        results.extend(results.extend([scores_leiden[0], scores_leiden[1]]))
         average_nmi = average_nmi + scores_leiden[0] 
         average_ari = average_ari + scores_leiden[1]
 
@@ -132,7 +130,7 @@ def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, f
     f2.write(str(parameters) + " " + str(results) + " \n")
     f.close()
     f2.close()
-    print(average)
+    print("parameters tested: ", parameters, "average: ", average, "result each fold: ", results)
     return results
     
 
@@ -297,7 +295,7 @@ K = 5
 
 gene_indexes_von_mises_bcell, _, _, model_data = data_bcell()
 data_bcell = divide_data(model_data, K)
-results_hybrid_bcell = cross_valid_hybrid(0.0004, 2, 64, gene_indexes_von_mises_bcell, data_bcell, K, "bcell_final_test_hybridV_I")
+results_hybrid_bcell = cross_valid_hybrid(0.0004, 2, 64, gene_indexes_von_mises_bcell, data_bcell, K, "bcell_final_test_hybridVI_")
 results_scVI_bcell = cross_valid_scvi(0.0003, 1, 128, data_bcell, K, "bcell_final_test_scvi_")
 print("wilcoxon_score_bcell: ", wilcoxon(x=results_hybrid_bcell, y=results_scVI_bcell))
 
