@@ -144,7 +144,8 @@ def start_cross_valid(line_nr, gene_indexes_von_mises, data_cross, K_cross, file
     learning_rate = float(line[0])
     hidden_layers = int(line[1])
     size_hidden_layer = int(line[2])
-    cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data_cross, K_cross, filename)
+    _ = cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data_cross, K_cross, filename)
+    # _ = cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data_cross, K_cross, filename)
     f.close()
 
 def final_result_scvi(train, test):
@@ -296,19 +297,19 @@ K = 5
 
 gene_indexes_von_mises_bcell, _, _, model_data = data_bcell()
 data_bcell = divide_data(model_data, K)
-results_hybrid_bcell = cross_valid_hybrid(0.0004, 2, 64, gene_indexes_von_mises_bcell, data_bcell, K, "bcell_final_test_hybridVI")
+results_hybrid_bcell = cross_valid_hybrid(0.0004, 2, 64, gene_indexes_von_mises_bcell, data_bcell, K, "bcell_final_test_hybridV_I")
 results_scVI_bcell = cross_valid_scvi(0.0003, 1, 128, data_bcell, K, "bcell_final_test_scvi_")
 print("wilcoxon_score_bcell: ", wilcoxon(x=results_hybrid_bcell, y=results_scVI_bcell))
 
 gene_indexes_von_mises_cortex, _, model_data = data_cortex()
 data_cortex = divide_data(model_data, K)
-results_hybrid_cortex = cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data_cortex, K, "cortex_test")
-results_scVI_cortex = cross_valid_scvi(0.0004, 1, 128, data_cortex, K, "cortex_test")
+results_hybrid_cortex = cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data_cortex, K, "cortex_test_hybridVI_")
+results_scVI_cortex = cross_valid_scvi(0.0004, 1, 128, data_cortex, K, "cortex_test_scvi_")
 print("wilcoxon_score_cortex: ", wilcoxon(x=results_hybrid_cortex, y=results_scVI_cortex))
 
 gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
 data_pbmc = divide_data(model_data, K)
-results_hybrid_pbmc = cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data_pbmc, K, "pbmc_final_test_hybridVI")
+results_hybrid_pbmc = cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data_pbmc, K, "pbmc_final_test_hybridVI_")
 results_scvi_pbmc = cross_valid_scvi(0.0004, 1, 128, data_pbmc, K, "pbmc_final_test_scVI")
 print("wilcoxon_score_pbmc: ", wilcoxon(x=results_hybrid_pbmc, y=results_scvi_pbmc))
 
