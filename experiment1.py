@@ -98,6 +98,7 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
     f.close()
     f2.close()
     print(average)
+    return results
 
 def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, filename):
     results = []
@@ -132,6 +133,7 @@ def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, f
     f.close()
     f2.close()
     print(average)
+    return results
     
 
 def start_cross_valid(line_nr, gene_indexes_von_mises, data_cross, K_cross, filename):
