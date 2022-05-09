@@ -283,47 +283,34 @@ def data_pbmc():
 
     return gene_indexes_von_mises, data_cross, K_cross, adata_model
 
-gene_indexes_von_mises, data_cross, K_cross, adata_model = data_bcell()
-for i in range(48):
-    start_cross_valid(i, gene_indexes_von_mises,data_cross, K_cross, "find_parameters_bcell")
+# code for running the cross-validation, switch data_bcell for another dataset
+#gene_indexes_von_mises, data_cross, K_cross, adata_model = data_bcell()
+#for i in range(48):
+#    start_cross_valid(i, gene_indexes_von_mises,data_cross, K_cross, "find_parameters_bcell")
 
 
-# gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
-# K = 5
-# data = divide_data(model_data, K)
-# cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data, K, "pbmc_test")
+# running the final cross_valid model with optimal hyperparameters 
+K = 5
 
-# gene_indexes_von_mises_cortex, _, model_data = data_cortex()
-# K = 5
-# data = divide_data(model_data, K)
-# cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data, K, "cortex_test")
-# _, _, _, model_data = data_pbmc()
-# K = 5
-# data = divide_data(model_data, K)
-# cross_valid_scvi(0.0004, 1, 128, data, K, "pbmc_test")
+gene_indexes_von_mises_bcell, _, _, model_data = data_bcell()
+data_bcell = divide_data(model_data, K)
+results_hybrid_bcell = cross_valid_hybrid(0.0004, 2, 64, gene_indexes_von_mises_bcell, data_bcell, K, "bcell_final_test_hybridVI")
+results_scVI_bcell = cross_valid_scvi(0.0003, 1, 128, data_bcell, K, "bcell_final_test_scvi_")
+print("wilcoxon_score_bcell: ", wilcoxon(x=results_hybrid_bcell, y=results_scVI_bcell))
 
-# _, _, model_data = data_cortex()
-# K = 5
-# data = divide_data(model_data, K)
-# cross_valid_scvi(0.0004, 1, 128, data, K, "cortex_test")
+gene_indexes_von_mises_cortex, _, model_data = data_cortex()
+data_cortex = divide_data(model_data, K)
+results_hybrid_cortex = cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data_cortex, K, "cortex_test")
+results_scVI_cortex = cross_valid_scvi(0.0004, 1, 128, data_cortex, K, "cortex_test")
+print("wilcoxon_score_cortex: ", wilcoxon(x=results_hybrid_cortex, y=results_scVI_cortex))
 
-# get indexes and split up datasets
-# gene_indexes_von_mises_cortex, _, _, train_cortex, test_cortex = data_cortex()
-# gene_indexes_von_mises_pbmc, _, _, train_pbmc, test_pbmc = data_pbmc()
+gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
+data_pbmc = divide_data(model_data, K)
+results_hybrid_pbmc = cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data_pbmc, K, "pbmc_final_test_hybridVI")
+results_scvi_pbmc = cross_valid_scvi(0.0004, 1, 128, data_pbmc, K, "pbmc_final_test_scVI")
+print("wilcoxon_score_pbmc: ", wilcoxon(x=results_hybrid_pbmc, y=results_scvi_pbmc))
 
-# # when optimal parameters have been found get the final results from pbmc and cortex datasets
-# results_scvi_pbmc = final_result_scvi(train_pbmc, test_pbmc)
-# results_hybrid_pbmc = final_result_hybrid("pbmc", gene_indexes_von_mises_pbmc, train_pbmc, test_pbmc)
-# results_scvi_cortex = final_result_scvi(train_cortex, test_cortex)
-# results_hybrid_cortex = final_result_hybrid("cortex", gene_indexes_von_mises_cortex, train_cortex, test_cortex)
-# # add the results from the respective models
-# results_scvi = results_scvi_pbmc.extend(results_scvi_cortex)
-# results_hybrid = results_hybrid_pbmc.extend(results_hybrid_cortex)
-# get the results of the wilcoxon test
-#print("wilcoxon_results: ", wilcoxon(x=[0.3098168467310414, 0.27854419331952673, 0.29418052002528405, 0.7726282070586233, 0.782650445286855, 0.7926726835150868], 
-#y=[0.6044130813899719, 0.4329071191819831, 0.5186601002859774, 0.7219028131308766, 0.7129907323822228, 0.7174467727565497]))
-
-# final_scores_:  0.3098168467310414, 0.27854419331952673, 0.29418052002528405
-# final_scores_pbmc:  0.6044130813899719, 0.4329071191819831, 0.5186601002859774
-# final_scores_:  0.7926726835150868, 0.7726282070586233, 0.782650445286855
-# final_scores_cortex:  0.7219028131308766, 0.7129907323822228, 0.7174467727565497
+# get the combined Wilcoxon results: 
+combined_results_hybrid = results_hybrid_bcell.extend(results_hybrid_cortex.extend(results_hybrid_pbmc))
+combined_results_scVI = results_scVI_bcell.extend(results_scVI_cortex.extend(results_scvi_pbmc))
+print("combined wilcoxon score: ", wilcoxon(x=combined_results_hybrid, y=combined_results_scVI))
