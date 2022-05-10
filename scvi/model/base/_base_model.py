@@ -116,7 +116,7 @@ class BaseModelClass(ABC):
 
         dl = data_loader_class(
             adata,
-            shuffle=shuffle,
+            shuffle=False,
             indices=indices,
             batch_size=batch_size,
             **data_loader_kwargs,

@@ -371,7 +371,7 @@ class DeviceBackedDataSplitter(DataSplitter):
             **kwargs,
         )
         self.batch_size = batch_size
-        self.shuffle = shuffle
+        self.shuffle = False
 
     def setup(self, stage: Optional[str] = None):
         super().setup()

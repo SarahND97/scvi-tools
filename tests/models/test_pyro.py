@@ -174,7 +174,7 @@ def test_pyro_bayesian_regression(save_path):
         adata_attr_name="obs",
         adata_key_name="_indices",
     )
-    train_dl = AnnDataLoader(adata, shuffle=True, batch_size=128)
+    train_dl = AnnDataLoader(adata, shuffle=False, batch_size=128)
     pyro.clear_param_store()
     model = BayesianRegressionModule(in_features=adata.shape[1], out_features=1)
     plan = PyroTrainingPlan(model)
@@ -244,7 +244,7 @@ def test_pyro_bayesian_regression_jit():
         adata_attr_name="obs",
         adata_key_name="_indices",
     )
-    train_dl = AnnDataLoader(adata, shuffle=True, batch_size=128)
+    train_dl = AnnDataLoader(adata, shuffle=False, batch_size=128)
     pyro.clear_param_store()
     model = BayesianRegressionModule(in_features=adata.shape[1], out_features=1)
     plan = PyroTrainingPlan(model, loss_fn=pyro.infer.JitTrace_ELBO())

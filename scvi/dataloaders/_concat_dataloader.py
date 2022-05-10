@@ -46,7 +46,7 @@ class ConcatDataLoader(DataLoader):
                 AnnDataLoader(
                     adata,
                     indices=indices,
-                    shuffle=shuffle,
+                    shuffle=False,
                     batch_size=batch_size,
                     data_and_attributes=data_and_attributes,
                     drop_last=drop_last,

@@ -40,7 +40,7 @@ class BatchSampler(torch.utils.data.sampler.Sampler):
         self.indices = indices
         self.n_obs = len(indices)
         self.batch_size = batch_size
-        self.shuffle = shuffle
+        self.shuffle = False
 
         if drop_last > batch_size:
             raise ValueError(

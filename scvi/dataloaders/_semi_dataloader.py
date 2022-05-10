@@ -73,7 +73,7 @@ class SemiSupervisedDataLoader(ConcatDataLoader):
         super().__init__(
             adata=adata,
             indices_list=[indices, labelled_idx],
-            shuffle=shuffle,
+            shuffle=False,
             batch_size=batch_size,
             data_and_attributes=data_and_attributes,
             drop_last=drop_last,
