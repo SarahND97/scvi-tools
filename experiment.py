@@ -274,17 +274,17 @@ K = 5
 # results_scVI_bcell = cross_valid_scvi(0.0003, 1, 128, data_bcell, K, "bcell_final_test_scvi_", 1.2)
 # print("wilcoxon_score_bcell: ", wilcoxon(x=results_hybrid_bcell, y=results_scVI_bcell))
 
-# gene_indexes_von_mises_cortex, _, model_data = data_cortex()
-# data_cortex_ = divide_data(model_data, K)
-# results_hybrid_cortex = cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data_cortex, K, "cortex_test_hybridVI_", 0.5)
-# results_scVI_cortex = cross_valid_scvi(0.0004, 1, 128, data_cortex, K, "cortex_test_scvi_", 0.5)
-# print("wilcoxon_score_cortex: ", wilcoxon(x=results_hybrid_cortex, y=results_scVI_cortex))
+gene_indexes_von_mises_cortex, _, model_data = data_cortex()
+data_cortex_ = divide_data_without_setup(model_data, K)
+results_hybrid_cortex = cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data_cortex_, K, "cortex_test_hybridVI_", 0.5)
+results_scVI_cortex = cross_valid_scvi(0.0004, 1, 128, data_cortex_, K, "cortex_test_scvi_", 0.5)
+print("wilcoxon_score_cortex: ", wilcoxon(x=results_hybrid_cortex, y=results_scVI_cortex))
 
-gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
-data_pbmc_ = divide_data_without_setup(model_data, K)
-results_hybrid_pbmc = cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data_pbmc_, K, "pbmc_final_test_hybridVI_", 0.5)
-results_scvi_pbmc = cross_valid_scvi(0.0004, 1, 128, data_pbmc_, K, "pbmc_final_test_scVI", 0.5)
-print("wilcoxon_score_pbmc: ", wilcoxon(x=results_hybrid_pbmc, y=results_scvi_pbmc))
+# gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
+# data_pbmc_ = divide_data_without_setup(model_data, K)
+# results_hybrid_pbmc = cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data_pbmc_, K, "pbmc_final_test_hybridVI_", 0.5)
+# results_scvi_pbmc = cross_valid_scvi(0.0004, 1, 128, data_pbmc_, K, "pbmc_final_test_scVI", 0.5)
+# print("wilcoxon_score_pbmc: ", wilcoxon(x=results_hybrid_pbmc, y=results_scvi_pbmc))
 
 # # get the combined Wilcoxon results: 
 # results = results_hybrid_cortex.extend(results_hybrid_pbmc)
