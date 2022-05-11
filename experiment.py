@@ -10,6 +10,18 @@ import numpy as np
 from scipy.stats import wilcoxon 
 import muon as mu
 from sklearn import preprocessing
+import torch
+import random
+from scvi._settings import settings
+from sklearn.cluster import KMeans
+import copy
+print("anndata.__version__", anndata.__version__)
+import scvi
+print("scvi: ", scvi.__version__)
+np.random.RandomState(seed=settings.seed)
+print("settings.seed: ", settings.seed)
+torch.manual_seed(0)
+random.seed(0)
 
 def concatenate_adatas(list_adata):
     return anndata.AnnData.concatenate(*list_adata,batch_key='batch')
@@ -72,9 +84,12 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
     f = open("output/" + filename + "average_results.txt","a")
     f2 = open("output/" + filename + "results.txt","a")
     for i in range(K):
-        data_ = list(data)
-        test_i = data_[i]
-        train_i = data_.pop(i)
+        train_i = copy.deepcopy(data)
+        test_i = train_i[i]
+        train_i.pop(i)
+        train_i = concatenate_adatas(train_i)
+        _setup_anndata(test_i, batch_key="batch", labels_key="labels")
+        _setup_anndata(train_i, batch_key="batch", labels_key="labels")
         model_ = model.HYBRIDVI(adata=train_i, gene_indexes=gene_indexes_von_mises, n_hidden=size_hidden_layer, n_layers=hidden_layers)
         model_.train(lr=learning_rate)
         latent = model_.get_latent_representation(adata=test_i, hybrid=True)
@@ -107,9 +122,12 @@ def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, f
     f = open("output/" + filename + "average_results.txt","a")
     f2 = open("output/" + filename + "results.txt","a")
     for i in range(K):
-        data_ = list(data)
-        test_i = data_[i]
-        train_i = data_.pop(i)
+        train_i = copy.deepcopy(data)
+        test_i = train_i[i]
+        train_i.pop(i)
+        train_i = concatenate_adatas(train_i)
+        _setup_anndata(test_i, batch_key="batch", labels_key="labels")
+        _setup_anndata(train_i, batch_key="batch", labels_key="labels")
         model_ = model.SCVI(adata=train_i, n_hidden=size_hidden_layer, n_layers=hidden_layers)
         model_.train(lr=learning_rate)
         latent = model_.get_latent_representation(adata=test_i, hybrid=False)
@@ -161,22 +179,22 @@ def data_cortex():
 
     adata_1 = []
     adata_2 = []
-    adata_train_best_model = []
-    adata_test_best_model = []
+    adata_model = []
+    # adata_test_best_model = []
     for label in set(adata.obs["labels"]):
          label_list = adata[np.where(adata.obs["labels"] == label)[0]]
          size = int(len(label_list)/2)
          total = len(label_list)
          adata_1.append(label_list[:int(size/2),:])
          adata_2.append(label_list[int(size/2):size,:])
-         adata_train_best_model.append(label_list[size:int(9*total/10),:])
-         adata_test_best_model.append(label_list[int(9*total/10):,:])
+         adata_model.append(label_list[size:int(9*total/10),:])
+         #adata_test_best_model.append(label_list[int(9*total/10):,:])
 
     adata_1 = concatenate_adatas(adata_1)
     adata_2 = concatenate_adatas(adata_2)
-    adata_train_best_model = concatenate_adatas(adata_train_best_model)
-    adata_test_best_model = concatenate_adatas(adata_test_best_model)
-    adata_model = concatenate_adatas([adata_train_best_model,adata_test_best_model])
+    # adata_train_best_model = concatenate_adatas(adata_train_best_model)
+    #adata_test_best_model = concatenate_adatas(adata_test_best_model)
+    adata_model = concatenate_adatas(adata_model)
     data = [adata_1, adata_2] #adata_train_best_model, adata_test_best_model]
     for d in range(len(data)):
         da = data[d].copy()
@@ -185,8 +203,8 @@ def data_cortex():
     return gene_indexes_von_mises, data, adata_model#adata_train_best_model, adata_test_best_model
 
 def data_bcell():
-    rna = sc.read_h5ad('/corgi/filippe/rawRNA.h5ad')
-    prna = sc.read_h5ad('/corgi/filippe/processedRNA.h5ad')
+    rna = sc.read_h5ad('data/rawRNA.h5ad')
+    prna = sc.read_h5ad('data/processedRNA.h5ad')
     # cells with common id
     mdata = mu.MuData({"raw_rna": rna, "processed_rna": prna})
     # remove cells that do not match between prna and rna:
@@ -229,13 +247,15 @@ def data_pbmc():
     adata_1 = adata_cross[:size,:]
     adata_2 = adata_cross[size:2*size,:]
     adata_3 = adata_cross[2*size:,:]
-    adata_model = adata[int((len(adata)*2)/K_cross):,:]    
-    data = [adata_1, adata_2, adata_3]#, adata_train_best_model, adata_test_best_model]
-    for d in range(len(data)):
-        da = data[d].copy()
-        _setup_anndata(da, batch_key="batch", labels_key="labels")
-        data[d] = da 
-    data_cross = data[:3]
+    adata_model = adata[int((len(adata)*2)/K_cross):,:]
+    print(adata_model)
+    # anndata.AnnData.write_h5ad(adata_model, filename="input/pbmc_data_model")
+    data_cross = [adata_1, adata_2, adata_3]#, adata_train_best_model, adata_test_best_model]
+    # for d in range(len(data)):
+    #     da = data[d].copy()
+    #     _setup_anndata(da, batch_key="batch", labels_key="labels")
+    #     data[d] = da
+   
 
     return gene_indexes_von_mises, data_cross, K_cross, adata_model
 
@@ -248,27 +268,27 @@ def data_pbmc():
 # running the final cross_valid model with optimal hyperparameters 
 K = 5
 
-gene_indexes_von_mises_bcell, _, _, model_data = data_bcell()
-data_bcell = divide_data(model_data, K)
-results_hybrid_bcell = cross_valid_hybrid(0.0004, 2, 64, gene_indexes_von_mises_bcell, data_bcell, K, "bcell_final_test_hybridVI_", 1.2)
-results_scVI_bcell = cross_valid_scvi(0.0003, 1, 128, data_bcell, K, "bcell_final_test_scvi_", 1.2)
-print("wilcoxon_score_bcell: ", wilcoxon(x=results_hybrid_bcell, y=results_scVI_bcell))
+# gene_indexes_von_mises_bcell, _, _, model_data = data_bcell()
+# data_bcell_ = divide_data(model_data, K)
+# results_hybrid_bcell = cross_valid_hybrid(0.0004, 2, 64, gene_indexes_von_mises_bcell, data_bcell, K, "bcell_final_test_hybridVI_", 1.2)
+# results_scVI_bcell = cross_valid_scvi(0.0003, 1, 128, data_bcell, K, "bcell_final_test_scvi_", 1.2)
+# print("wilcoxon_score_bcell: ", wilcoxon(x=results_hybrid_bcell, y=results_scVI_bcell))
 
-gene_indexes_von_mises_cortex, _, model_data = data_cortex()
-data_cortex = divide_data(model_data, K)
-results_hybrid_cortex = cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data_cortex, K, "cortex_test_hybridVI_", 0.5)
-results_scVI_cortex = cross_valid_scvi(0.0004, 1, 128, data_cortex, K, "cortex_test_scvi_", 0.5)
-print("wilcoxon_score_cortex: ", wilcoxon(x=results_hybrid_cortex, y=results_scVI_cortex))
+# gene_indexes_von_mises_cortex, _, model_data = data_cortex()
+# data_cortex_ = divide_data(model_data, K)
+# results_hybrid_cortex = cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data_cortex, K, "cortex_test_hybridVI_", 0.5)
+# results_scVI_cortex = cross_valid_scvi(0.0004, 1, 128, data_cortex, K, "cortex_test_scvi_", 0.5)
+# print("wilcoxon_score_cortex: ", wilcoxon(x=results_hybrid_cortex, y=results_scVI_cortex))
 
 gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
-data_pbmc = divide_data(model_data, K)
-results_hybrid_pbmc = cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data_pbmc, K, "pbmc_final_test_hybridVI_", 0.5)
-results_scvi_pbmc = cross_valid_scvi(0.0004, 1, 128, data_pbmc, K, "pbmc_final_test_scVI", 0.5)
+data_pbmc_ = divide_data_without_setup(model_data, K)
+results_hybrid_pbmc = cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data_pbmc_, K, "pbmc_final_test_hybridVI_", 0.5)
+results_scvi_pbmc = cross_valid_scvi(0.0004, 1, 128, data_pbmc_, K, "pbmc_final_test_scVI", 0.5)
 print("wilcoxon_score_pbmc: ", wilcoxon(x=results_hybrid_pbmc, y=results_scvi_pbmc))
 
-# get the combined Wilcoxon results: 
-results = results_hybrid_cortex.extend(results_hybrid_pbmc)
-combined_results_hybrid = results_hybrid_bcell.extend(results)
-results_ = results_scVI_cortex.extend(results_scvi_pbmc)
-combined_results_scVI = results_scVI_bcell.extend(results)
-print("combined wilcoxon score: ", wilcoxon(x=combined_results_hybrid, y=combined_results_scVI))
+# # get the combined Wilcoxon results: 
+# results = results_hybrid_cortex.extend(results_hybrid_pbmc)
+# combined_results_hybrid = results_hybrid_bcell.extend(results)
+# results_ = results_scVI_cortex.extend(results_scvi_pbmc)
+# combined_results_scVI = results_scVI_bcell.extend(results)
+# print("combined wilcoxon score: ", wilcoxon(x=combined_results_hybrid, y=combined_results_scVI))
