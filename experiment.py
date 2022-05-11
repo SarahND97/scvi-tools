@@ -237,7 +237,6 @@ def data_pbmc():
     genes = [x for x in adata.var["gene_symbols"]]
     cell_cycle_genes = [x for x in cell_cycle_genes if x in genes]
     adata.var["von_mises"] = "false"
-    print(len(cell_cycle_genes))
     for gene in cell_cycle_genes:
         adata.var.loc[adata.var["gene_symbols"] == gene, "von_mises"] = "true"
     gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
