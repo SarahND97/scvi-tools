@@ -88,8 +88,8 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
         test_i = train_i[i]
         train_i.pop(i)
         train_i = concatenate_adatas(train_i)
-        _setup_anndata(test_i, batch_key="batch", labels_key="labels")
-        _setup_anndata(train_i, batch_key="batch", labels_key="labels")
+        _setup_anndata(test_i, labels_key="labels")
+        _setup_anndata(train_i, labels_key="labels")
         model_ = model.HYBRIDVI(adata=train_i, gene_indexes=gene_indexes_von_mises, n_hidden=size_hidden_layer, n_layers=hidden_layers)
         model_.train(lr=learning_rate)
         latent = model_.get_latent_representation(adata=test_i, hybrid=True)
@@ -126,8 +126,8 @@ def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, f
         test_i = train_i[i]
         train_i.pop(i)
         train_i = concatenate_adatas(train_i)
-        _setup_anndata(test_i, batch_key="batch", labels_key="labels")
-        _setup_anndata(train_i, batch_key="batch", labels_key="labels")
+        _setup_anndata(test_i, labels_key="labels")
+        _setup_anndata(train_i, labels_key="labels")
         model_ = model.SCVI(adata=train_i, n_hidden=size_hidden_layer, n_layers=hidden_layers)
         model_.train(lr=learning_rate)
         latent = model_.get_latent_representation(adata=test_i, hybrid=False)
