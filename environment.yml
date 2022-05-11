@@ -1,21 +1,21 @@
 name: scvi_tools
 dependencies:
-  - python=3.8.*
+  - python=3.8.12
   - numpy
   - pytest
-  - scanpy
+  - scanpy=1.9.1
   - pytorch
-  - matplotlib
+  - matplotlib=3.5.2           
   - pandas=1.2.5
   - numba
   - pytables
   - scikit-learn
   - seaborn
   - statsmodels
-  - pytorch-lightning
-  - rich
+  - pytorch-lightning=1.5.10
+  - rich=12.4.1
   - docrep
   - torchmetrics
   - importlib_metadata
-  - scvi-tools
-  - leidenalg
+  - scvi-tools=0.16.1
+  - leidenalg=0.8.10
