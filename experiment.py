@@ -233,7 +233,7 @@ def data_pbmc():
 # code for running the cross-validation, switch data_bcell for another dataset
 gene_indexes_von_mises, data_cross, K_cross, _ = data_pbmc()
 for i in range(40):
-    start_cross_valid("hybrid", i, gene_indexes_von_mises,data_cross, K_cross, "cross_valid_hybrid_pbmc_")
+    start_cross_valid("hybrid", i, gene_indexes_von_mises,data_cross, K_cross, "cross_valid_hybrid_pbmc_", 0.5)
 # running the final cross_valid model with optimal hyperparameters 
 K = 5
 
