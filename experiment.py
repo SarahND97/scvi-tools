@@ -93,6 +93,9 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
         pred = test_i.obs["leiden_scvi"].to_list()
         pred = [int(x) for x in pred]
         scores_leiden = clustering_scores(test_i.obs["labels"], pred)
+        print(scores_leiden)
+        sc.tl.umap(test_i)
+        sc.pl.umap(test_i, color=["leiden_scvi", "labels"], title=["result hybridVAE PBMC", "true labels PBMC"])
         results.extend([scores_leiden[0], scores_leiden[1]])
         average_nmi = average_nmi + scores_leiden[0] 
         average_ari = average_ari + scores_leiden[1]
@@ -159,45 +162,6 @@ def start_cross_valid(model_type ,line_nr, gene_indexes_von_mises, data_cross, K
     if model_type=="scvi": 
         _ = cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data_cross, K_cross, filename, res)
     f.close()
-       
-def data_cortex():
-    adata = _load_cortex(run_setup_anndata=False)
-    sc.pp.filter_cells(adata, min_genes=20)
-    sc.pp.filter_genes(adata, min_cells=3)
-    # Find the cell cycle genes in the data
-    cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
-    adata.var_names = adata.var_names.str.upper()
-    genes = [x for x in adata.var_names]
-    cell_cycle_genes = [x for x in cell_cycle_genes if x in genes]
-    adata.var["von_mises"] = "false"
-    for gene in cell_cycle_genes:
-        adata.var.loc[adata.var_names == gene, "von_mises"] = "true"
-    gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
-
-    adata_1 = []
-    adata_2 = []
-    adata_model = []
-    # adata_test_best_model = []
-    for label in set(adata.obs["labels"]):
-         label_list = adata[np.where(adata.obs["labels"] == label)[0]]
-         size = int(len(label_list)/2)
-         total = len(label_list)
-         adata_1.append(label_list[:int(size/2),:])
-         adata_2.append(label_list[int(size/2):size,:])
-         adata_model.append(label_list[size:int(9*total/10),:])
-         #adata_test_best_model.append(label_list[int(9*total/10):,:])
-
-    adata_1 = concatenate_adatas(adata_1)
-    adata_2 = concatenate_adatas(adata_2)
-    # adata_train_best_model = concatenate_adatas(adata_train_best_model)
-    #adata_test_best_model = concatenate_adatas(adata_test_best_model)
-    adata_model = concatenate_adatas(adata_model)
-    data = [adata_1, adata_2] #adata_train_best_model, adata_test_best_model]
-    for d in range(len(data)):
-        da = data[d].copy()
-        _setup_anndata(da, labels_key="labels")
-        data[d] = da
-    return gene_indexes_von_mises, data, adata_model#adata_train_best_model, adata_test_best_model
 
 def data_bcell():
     rna = sc.read_h5ad('data/rawRNA.h5ad')
@@ -210,6 +174,7 @@ def data_bcell():
     adata = mdata['raw_rna']
     sc.pp.filter_cells(adata, min_genes=20)  
     sc.pp.filter_genes(adata, min_cells=3)
+    adata.obs.merged.cat.rename_categories({'CD11C+ MBC': 'ITGAX+ MBC', }, inplace= True)
     # Find the cell cycle genes in the data
     cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
     adata.var_names = adata.var_names.str.upper()
@@ -224,9 +189,29 @@ def data_bcell():
     adata.layers["counts"] = adata.X.copy()
     adata.raw = adata
     divided_data = divide_data_without_setup(adata, 3)
-    data_cross = divide_data(divided_data[0],3)
-    adata_model = concatenate_adatas((divided_data[1], divided_data[2]))
+    data_cross = divide_data_without_setup(divided_data[0],3)
+    adata_model = concatenate_adatas([divided_data[1], divided_data[2]])
     return gene_indexes_von_mises, data_cross, K_cross, adata_model
+
+       
+def data_cortex():
+    adata = _load_cortex(run_setup_anndata=False)
+    sc.pp.filter_cells(adata, min_genes=20)
+    sc.pp.filter_genes(adata, min_cells=3)
+    # Find the cell cycle genes in the data
+    cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
+    adata.var_names = adata.var_names.str.upper()
+    genes = [x for x in adata.var_names]
+    cell_cycle_genes = [x for x in cell_cycle_genes if x in genes]
+    adata.var["von_mises"] = "false"
+    for gene in cell_cycle_genes:
+        adata.var.loc[adata.var_names == gene, "von_mises"] = "true"
+    gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
+    data_ = divide_data_without_setup(adata, 3)
+    # double check how much data in each 
+    data_cross = data_[0], data_[1]
+    adata_model = data_[2]
+    return gene_indexes_von_mises, data_cross, adata_model#adata_train_best_model, adata_test_best_model
 
 def data_pbmc():
     adata = _load_pbmc_dataset(run_setup_anndata=False)
@@ -240,19 +225,19 @@ def data_pbmc():
     for gene in cell_cycle_genes:
         adata.var.loc[adata.var["gene_symbols"] == gene, "von_mises"] = "true"
     gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
-    adata_cross = adata[:int(len(adata)/2), :]
-    data_cross = divide_data_without_setup(adata_cross, K_cross)
-    adata_model = adata[int(len(adata)/2):,:]
+    data_ = divide_data_without_setup(adata, 2)
+    data_cross = divide_data_without_setup(data_[0], K_cross)
+    adata_model = data_[1]
     return gene_indexes_von_mises, data_cross, K_cross, adata_model
 
 # code for running the cross-validation, switch data_bcell for another dataset
-gene_indexes_von_mises, data_cross, K_cross, adata_model = data_bcell()
+gene_indexes_von_mises, data_cross, K_cross, _ = data_pbmc()
 for i in range(40):
-    start_cross_valid("hybrid", i, gene_indexes_von_mises,data_cross, K_cross, "cross_valid_hybrid_bcell_")
+    start_cross_valid("hybrid", i, gene_indexes_von_mises,data_cross, K_cross, "cross_valid_hybrid_pbmc_")
 # running the final cross_valid model with optimal hyperparameters 
-# K = 5
+K = 5
 
-# gene_indexes_von_mises_bcell, _, _, model_data = data_bcell()
+# gene_indexes_von_mises_bcell, _, _, model_data = data_bcell(
 # data_bcell_ = divide_data_without_setup(model_data, K)
 # results_hybrid_bcell = cross_valid_hybrid(0.0004, 2, 64, gene_indexes_von_mises_bcell, data_bcell_, K, "bcell_final_test_hybridVI_", 1.2)
 # results_scVI_bcell = cross_valid_scvi(0.0003, 1, 128, data_bcell_, K, "bcell_final_test_scvi_", 1.2)
@@ -267,8 +252,8 @@ for i in range(40):
 # gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
 # data_pbmc_ = divide_data_without_setup(model_data, K)
 # results_hybrid_pbmc = cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data_pbmc_, K, "pbmc_final_test_hybridVI_", 0.5)
-# results_scvi_pbmc = cross_valid_scvi(0.0004, 1, 128, data_pbmc_, K, "pbmc_final_test_scVI", 0.5)
-# print("wilcoxon_score_pbmc: ", wilcoxon(x=results_hybrid_pbmc, y=results_scvi_pbmc))
+#results_scvi_pbmc = cross_valid_scvi(0.0004, 1, 128, data_pbmc_, K, "pbmc_final_test_scVI", 0.5)
+#print("wilcoxon_score_pbmc: ", wilcoxon(x=results_hybrid_pbmc, y=results_scvi_pbmc))
 
 # # get the combined Wilcoxon results: 
 # results = results_hybrid_cortex.extend(results_hybrid_pbmc)
