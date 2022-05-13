@@ -14,9 +14,8 @@ from scvi._settings import settings
 from sklearn.cluster import KMeans
 import copy
 
-
 def concatenate_adatas(list_adata):
-    return anndata.AnnData.concatenate(*list_adata,batch_key='batch')
+    return anndata.AnnData.concatenate(*list_adata)
 
 def create_parameters_file():
     learning_rate = [0.0002, 0.0003, 0.0004, 0.0005, 0.0006]
@@ -45,7 +44,10 @@ def divide_data_without_setup(data, K):
             label_list = data[np.where(data.obs["labels"] == label)[0]]
             total = len(label_list)
             size = int(total/K)
-            divided_data[i].append(label_list[i*size:size*(i+1),:])
+            if total%K!=0 and i==K-1: # get the final cells that would be missed otherwise
+                divided_data[i].append(label_list[i*size:,:])
+            else:
+                divided_data[i].append(label_list[i*size:size*(i+1),:])
 
     return [concatenate_adatas(d) for d in divided_data]
 
@@ -80,7 +82,10 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
         train_i = copy.deepcopy(data)
         test_i = train_i[i]
         train_i.pop(i)
-        train_i = concatenate_adatas(train_i)
+        if len(data)<2:
+            train_i = train_i[0]
+        else:
+            train_i = concatenate_adatas(train_i)
         _setup_anndata(test_i, labels_key="labels")
         _setup_anndata(train_i, labels_key="labels")
         model_ = model.HYBRIDVI(adata=train_i, gene_indexes=gene_indexes_von_mises, n_hidden=size_hidden_layer, n_layers=hidden_layers)
@@ -93,9 +98,9 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
         pred = test_i.obs["leiden_scvi"].to_list()
         pred = [int(x) for x in pred]
         scores_leiden = clustering_scores(test_i.obs["labels"], pred)
-        print(scores_leiden)
-        sc.tl.umap(test_i)
-        sc.pl.umap(test_i, color=["leiden_scvi", "labels"], title=["result hybridVAE PBMC", "true labels PBMC"])
+        print("parameters: ", parameters, "fold: ", i, "scores: ", scores_leiden)
+        # sc.tl.umap(test_i)
+        # sc.pl.umap(test_i, color=["leiden_scvi", "labels"], title=["result hybridVAE PBMC", "true labels PBMC"])
         results.extend([scores_leiden[0], scores_leiden[1]])
         average_nmi = average_nmi + scores_leiden[0] 
         average_ari = average_ari + scores_leiden[1]
@@ -122,7 +127,8 @@ def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, f
         train_i = copy.deepcopy(data)
         test_i = train_i[i]
         train_i.pop(i)
-        train_i = concatenate_adatas(train_i)
+        if len(data)>2:
+            train_i = concatenate_adatas(train_i)
         _setup_anndata(test_i, labels_key="labels")
         _setup_anndata(train_i, labels_key="labels")
         model_ = model.SCVI(adata=train_i, n_hidden=size_hidden_layer, n_layers=hidden_layers)
@@ -196,8 +202,6 @@ def data_bcell():
        
 def data_cortex():
     adata = _load_cortex(run_setup_anndata=False)
-    sc.pp.filter_cells(adata, min_genes=20)
-    sc.pp.filter_genes(adata, min_cells=3)
     # Find the cell cycle genes in the data
     cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
     adata.var_names = adata.var_names.str.upper()
@@ -209,8 +213,8 @@ def data_cortex():
     gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
     data_ = divide_data_without_setup(adata, 3)
     # double check how much data in each 
-    data_cross = data_[0], data_[1]
-    adata_model = data_[2]
+    data_cross = divide_data_without_setup(data_[0], 2)
+    adata_model = concatenate_adatas([data_[1], data_[2]])
     return gene_indexes_von_mises, data_cross, adata_model#adata_train_best_model, adata_test_best_model
 
 def data_pbmc():
@@ -231,10 +235,12 @@ def data_pbmc():
     return gene_indexes_von_mises, data_cross, K_cross, adata_model
 
 # code for running the cross-validation, switch data_bcell for another dataset
-gene_indexes_von_mises, data_cross, K_cross, _ = data_pbmc()
+# gene_indexes_von_mises, data_cross, K_cross, _ = data_pbmc()
+gene_indexes_von_mises, data_cross, _ = data_cortex()
 for i in range(40):
-    start_cross_valid("hybrid", i, gene_indexes_von_mises,data_cross, K_cross, "cross_valid_hybrid_pbmc_", 0.5)
-# running the final cross_valid model with optimal hyperparameters 
+   start_cross_valid("hybrid", i, gene_indexes_von_mises, data_cross, 2, "cross_valid_hybrid_cortex_", 0.5)
+
+# running the model with optimal hyperparameters on the three datasets
 K = 5
 
 # gene_indexes_von_mises_bcell, _, _, model_data = data_bcell(
