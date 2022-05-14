@@ -213,7 +213,7 @@ def data_cortex():
     gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
     data_ = divide_data_without_setup(adata, 3)
     # double check how much data in each 
-    data_cross = divide_data_without_setup(data_[0], 2)
+    data_cross = divide_data_without_setup(data_[0], 3)
     adata_model = concatenate_adatas([data_[1], data_[2]])
     return gene_indexes_von_mises, data_cross, adata_model#adata_train_best_model, adata_test_best_model
 
@@ -238,7 +238,7 @@ def data_pbmc():
 # gene_indexes_von_mises, data_cross, K_cross, _ = data_pbmc()
 gene_indexes_von_mises, data_cross, _ = data_cortex()
 for i in range(40):
-   start_cross_valid("hybrid", i, gene_indexes_von_mises, data_cross, 2, "cross_valid_hybrid_cortex_", 0.5)
+   start_cross_valid("hybrid", i, gene_indexes_von_mises, data_cross, 3, "k_3_cross_valid_hybrid_cortex_", 0.5)
 
 # running the model with optimal hyperparameters on the three datasets
 K = 5
