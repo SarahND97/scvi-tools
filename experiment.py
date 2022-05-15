@@ -36,21 +36,6 @@ def create_parameters_file():
 def clustering_scores(labels_true, labels_pred):
     return [NMI(labels_true, labels_pred), ARI(labels_true, labels_pred)]
 
-def divide_data_without_setup(data, K):
-    divided_data = [[] for _ in range(K)]
-    # make sure that there is an equal amount of labels in each dataset
-    for i in range(K):
-        for label in set(data.obs["labels"]):
-            label_list = data[np.where(data.obs["labels"] == label)[0]]
-            total = len(label_list)
-            size = int(total/K)
-            if total%K!=0 and i==K-1: # get the final cells that would be missed otherwise
-                divided_data[i].append(label_list[i*size:,:])
-            else:
-                divided_data[i].append(label_list[i*size:size*(i+1),:])
-
-    return [concatenate_adatas(d) for d in divided_data]
-
 def divide_data(data, K):
     divided_data = [[] for _ in range(K)]
     # make sure that there is an equal amount of labels in each dataset
@@ -59,14 +44,15 @@ def divide_data(data, K):
             label_list = data[np.where(data.obs["labels"] == label)[0]]
             total = len(label_list)
             size = int(total/K)
-            divided_data[i].append(label_list[i*size:size*(i+1),:])
+            if i<K-1:
+                divided_data[i].append(label_list[i*size:size*(i+1),:])
+            # the last fold gets the remainder of the cells
+            else: 
+                divided_data[i].append(label_list[i*size:,:])
+            
+            
 
-    divided_data = [concatenate_adatas(d) for d in divided_data]
-    for i in range(len(divided_data)):
-        da = divided_data[i].copy()
-        _setup_anndata(da, labels_key="labels")
-        divided_data[i] = da 
-    return divided_data
+    return [concatenate_adatas(d) for d in divided_data]
 
 # Find parameters 
 # the parameters are learning rate, layers, size of layers
@@ -169,18 +155,17 @@ def start_cross_valid(model_type ,line_nr, gene_indexes_von_mises, data_cross, K
         _ = cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data_cross, K_cross, filename, res)
     f.close()
 
-def data_bcell():
+def data_bcell(K):
     rna = sc.read_h5ad('data/rawRNA.h5ad')
     prna = sc.read_h5ad('data/processedRNA.h5ad')
+    prna.obs.merged.cat.rename_categories({'CD11C+ MBC': 'ITGAX+ MBC', }, inplace= True)
     # cells with common id
     mdata = mu.MuData({"raw_rna": rna, "processed_rna": prna})
     # remove cells that do not match between prna and rna:
     mu.pp.intersect_obs(mdata)
-    K_cross = 3
     adata = mdata['raw_rna']
     sc.pp.filter_cells(adata, min_genes=20)  
     sc.pp.filter_genes(adata, min_cells=3)
-    adata.obs.merged.cat.rename_categories({'CD11C+ MBC': 'ITGAX+ MBC', }, inplace= True)
     # Find the cell cycle genes in the data
     cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
     adata.var_names = adata.var_names.str.upper()
@@ -194,13 +179,13 @@ def data_bcell():
     adata.obs["labels"] = labels
     adata.layers["counts"] = adata.X.copy()
     adata.raw = adata
-    divided_data = divide_data_without_setup(adata, 3)
-    data_cross = divide_data_without_setup(divided_data[0],3)
-    adata_model = concatenate_adatas([divided_data[1], divided_data[2]])
-    return gene_indexes_von_mises, data_cross, K_cross, adata_model
+    divided_data = divide_data(adata, 2)
+    data_cross = divide_data(divided_data[0],K)
+    adata_model = divided_data[1]
+    return gene_indexes_von_mises, data_cross, adata_model
 
        
-def data_cortex():
+def data_cortex(K):
     adata = _load_cortex(run_setup_anndata=False)
     # Find the cell cycle genes in the data
     cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
@@ -211,15 +196,14 @@ def data_cortex():
     for gene in cell_cycle_genes:
         adata.var.loc[adata.var_names == gene, "von_mises"] = "true"
     gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
-    data_ = divide_data_without_setup(adata, 3)
+    data_ = divide_data(adata, 3)
     # double check how much data in each 
-    data_cross = divide_data_without_setup(data_[0], 5)
+    data_cross = divide_data(data_[0], K)
     adata_model = concatenate_adatas([data_[1], data_[2]])
     return gene_indexes_von_mises, data_cross, adata_model#adata_train_best_model, adata_test_best_model
 
-def data_pbmc():
+def data_pbmc(K):
     adata = _load_pbmc_dataset(run_setup_anndata=False)
-    K_cross = 5
     # Find the cell cycle genes in the data
     cell_cycle_genes = [x.strip() for x in open('data/regev_lab_cell_cycle_genes.txt')]
     adata.var["gene_symbols"] = adata.var["gene_symbols"].str.upper()
@@ -229,34 +213,35 @@ def data_pbmc():
     for gene in cell_cycle_genes:
         adata.var.loc[adata.var["gene_symbols"] == gene, "von_mises"] = "true"
     gene_indexes_von_mises = np.where(adata.var['von_mises'] == "true")[0]
-    data_ = divide_data_without_setup(adata, 2)
-    data_cross = divide_data_without_setup(data_[0], K_cross)
+    data_ = divide_data(adata, 2)
+    data_cross = divide_data(data_[0], K)
     adata_model = data_[1]
-    return gene_indexes_von_mises, data_cross, K_cross, adata_model
+    return gene_indexes_von_mises, data_cross, adata_model
 
+K = 5
 # code for running the cross-validation, switch data_bcell for another dataset
 # gene_indexes_von_mises, data_cross, K_cross, _ = data_pbmc()
-gene_indexes_von_mises, data_cross, _ = data_cortex()
+gene_indexes_von_mises, data_cross, _ = data_bcell(K=K)
 for i in range(40):
-   start_cross_valid("hybrid", i, gene_indexes_von_mises, data_cross, 5, "k_5_cross_valid_hybrid_cortex_", 0.5)
+   start_cross_valid("hybrid", i, gene_indexes_von_mises, data_cross, K, "k_5_cross_valid_hybrid_bcell_", 1.2)
 
 # running the model with optimal hyperparameters on the three datasets
-K = 5
+
 
 # gene_indexes_von_mises_bcell, _, _, model_data = data_bcell(
-# data_bcell_ = divide_data_without_setup(model_data, K)
+# data_bcell_ = divide_data(model_data, K)
 # results_hybrid_bcell = cross_valid_hybrid(0.0004, 2, 64, gene_indexes_von_mises_bcell, data_bcell_, K, "bcell_final_test_hybridVI_", 1.2)
 # results_scVI_bcell = cross_valid_scvi(0.0003, 1, 128, data_bcell_, K, "bcell_final_test_scvi_", 1.2)
 # print("wilcoxon_score_bcell: ", wilcoxon(x=results_hybrid_bcell, y=results_scVI_bcell))
 
 # gene_indexes_von_mises_cortex, _, model_data = data_cortex()
-# data_cortex_ = divide_data_without_setup(model_data, K)
+# data_cortex_ = divide_data(model_data, K)
 # results_hybrid_cortex = cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data_cortex_, K, "cortex_test_hybridVI_", 0.5)
 # results_scVI_cortex = cross_valid_scvi(0.0004, 1, 128, data_cortex_, K, "cortex_test_scvi_", 0.5)
 # print("wilcoxon_score_cortex: ", wilcoxon(x=results_hybrid_cortex, y=results_scVI_cortex))
 
 # gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
-# data_pbmc_ = divide_data_without_setup(model_data, K)
+# data_pbmc_ = divide_data(model_data, K)
 # results_hybrid_pbmc = cross_valid_hybrid(0.0001, 2, 256, gene_indexes_von_mises_pbmc, data_pbmc_, K, "pbmc_final_test_hybridVI_", 0.5)
 #results_scvi_pbmc = cross_valid_scvi(0.0004, 1, 128, data_pbmc_, K, "pbmc_final_test_scVI", 0.5)
 #print("wilcoxon_score_pbmc: ", wilcoxon(x=results_hybrid_pbmc, y=results_scvi_pbmc))
