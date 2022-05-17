@@ -56,15 +56,15 @@ def divide_data(data, K):
 
 # Find parameters 
 # the parameters are learning rate, layers, size of layers
-def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data, K, filename, res):
+def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data, K, filename, res, seed):
     results = []
     average_nmi = 0
     average_ari = 0
     parameters = [learning_rate, hidden_layers, size_hidden_layer]
-    f = open("cross_valid_results/" + filename + "average_results.txt","a")
-    f2 = open("cross_valid_results/" + filename + "results.txt","a")
+    f = open(filename + "average_results.txt","a")
+    f2 = open(filename + "results.txt","a")
     for i in range(K):
-        settings.seed=0
+        settings.seed=seed
         train_i = copy.deepcopy(data)
         test_i = train_i[i]
         train_i.pop(i)
@@ -87,7 +87,7 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
         print("parameters: ", parameters, "fold: ", i, "scores: ", scores_leiden)
         # sc.tl.umap(test_i)
         # sc.pl.umap(test_i, color=["leiden_scvi", "labels"], title=["result hybridVAE PBMC", "true labels PBMC"])
-        results.extend([scores_leiden[0], scores_leiden[1]])
+        results.append([scores_leiden[0], scores_leiden[1]])
         average_nmi = average_nmi + scores_leiden[0] 
         average_ari = average_ari + scores_leiden[1]
 
@@ -101,19 +101,21 @@ def cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_ind
     print("parameters tested: ", parameters, "average: ", average, "result each fold: ", results)
     return results
 
-def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, filename, res):
+def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, filename, res, seed):
     results = []
     average_nmi = 0
     average_ari = 0
     parameters = [learning_rate, hidden_layers, size_hidden_layer]
-    f = open("cross_valid_results/" + filename + "average_results.txt","a")
-    f2 = open("cross_valid_results/" + filename + "results.txt","a")
+    f = open(filename + "average_results.txt","a")
+    f2 = open(filename + "results.txt","a")
     for i in range(K):
-        settings.seed=0
+        settings.seed=seed
         train_i = copy.deepcopy(data)
         test_i = train_i[i]
         train_i.pop(i)
-        if len(data)>2:
+        if len(data)<2:
+            train_i = train_i[0]
+        else:
             train_i = concatenate_adatas(train_i)
         _setup_anndata(test_i, labels_key="labels")
         _setup_anndata(train_i, labels_key="labels")
@@ -126,7 +128,7 @@ def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, f
         pred = test_i.obs["leiden_scvi"].to_list()
         pred = [int(x) for x in pred]
         scores_leiden = clustering_scores(test_i.obs["labels"], pred)
-        results.extend([scores_leiden[0], scores_leiden[1]])
+        results.append([scores_leiden[0], scores_leiden[1]])
         average_nmi = average_nmi + scores_leiden[0] 
         average_ari = average_ari + scores_leiden[1]
 
@@ -141,7 +143,7 @@ def cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data, K, f
     return results
     
 
-def start_cross_valid(model_type ,line_nr, gene_indexes_von_mises, data_cross, K_cross, filename, res):
+def start_cross_valid(model_type ,line_nr, gene_indexes_von_mises, data_cross, K_cross, filename, res, seed):
     file = "input/parameters.in"
     f = open(file, "r")
     lines = f.readlines()
@@ -150,10 +152,16 @@ def start_cross_valid(model_type ,line_nr, gene_indexes_von_mises, data_cross, K
     hidden_layers = int(line[1])
     size_hidden_layer = int(line[2])
     if model_type=="hybrid":
-        _ = cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data_cross, K_cross, filename, res)
+        _ = cross_valid_hybrid(learning_rate, hidden_layers, size_hidden_layer, gene_indexes_von_mises, data_cross, K_cross, filename, res, seed)
     if model_type=="scvi": 
-        _ = cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data_cross, K_cross, filename, res)
+        _ = cross_valid_scvi(learning_rate, hidden_layers, size_hidden_layer, data_cross, K_cross, filename, res, seed)
     f.close()
+
+def visualize_von_mises_fisher(data, latent):
+    latent[:,8:].shape
+    data.obsm["latent"] = latent
+    sc.pl.embedding(data, basis = "latent",color = ["labels"], size=120, 
+                    components = ['9,10'], title="von Mises-Fisher Latent Space Cortex Dataset")
 
 def data_bcell(K):
     rna = sc.read_h5ad('../../filippe/rawRNA.h5ad')
@@ -218,27 +226,83 @@ def data_pbmc(K):
     adata_model = data_[1]
     return gene_indexes_von_mises, data_cross, adata_model
 
-K = 5
+def get_wilcoxon_score(K, filename, seeds, results_hybrid, results_scVI):
+    average_hybrid = np.zeros((2,K))
+    average_scVI = np.zeros((2,K))
+    nmi_scvi = np.zeros((len(seeds),K))
+    ari_scvi = np.zeros((len(seeds),K))
+    nmi_hybrid = np.zeros((len(seeds),K))
+    ari_hybrid = np.zeros((len(seeds),K))
+    print(filename)
+    # filename should include path
+    f = open(filename + ".txt","a")
+    for i in range(len(seeds)):
+        index = 0
+        for j in range(0, K):
+            nmi_hybrid[i][j] = results_hybrid[i][j][0]
+            ari_hybrid[i][j] = results_hybrid[i][j][1]
+            nmi_scvi[i][j] = results_scVI[i][j][0]
+            ari_scvi[i][j] = results_scVI[i][j][1]
+            average_hybrid[i] += results_hybrid[i][j]
+            average_scVI[i] += results_scVI[i][j]
+        index += 2
+    average_hybrid /= len(seeds)
+    average_scVI /= len(seeds)
+    for i in range(len(seeds)):
+        print("Wilcoxon seed " + str(seeds[i]) + ": ", wilcoxon(x=np.ravel(results_hybrid[i]), y=np.ravel(results_scVI[i])))
+    wilcoxon_score=wilcoxon(x=np.ravel(average_hybrid), y=np.ravel(average_scVI))
+    f.write("Wilcoxon: " + str(wilcoxon_score) + " Hybrid_average: " + str(average_hybrid) + " scvi_average: " + str(average_scVI))
+    f.close()
+    print("wilcoxon_score: ", wilcoxon_score)
+
+    for i in range(K):
+        string_nmi_hybrid = "nmi fold " + str(i)
+        write_mean_std(nmi_scvi[i],nmi_hybrid[i], string_nmi_hybrid, filename)
+        string_ari_scvi = "ari fold " + str(i)
+        write_mean_std(ari_scvi[i], ari_hybrid[i],string_ari_scvi, filename)
+
+def write_mean_std(scvi_, hybrid, fold, filename):
+    f = open(filename + "folds_standard_deviation_mean" + ".txt","a")
+    f.write("standard deviation " + fold + " scvi: " + str(np.std(scvi_)) + " hybrid: " + str(np.std(hybrid))+"\n")
+    f.write("mean " + fold + " scvi: " + str(np.mean(scvi_)) + " hybrid: " + str(np.mean(hybrid))+"\n")
+    f.close()
+
+
 # code for running the cross-validation, switch data_bcell for another dataset
 # gene_indexes_von_mises, data_cross, K_cross, _ = data_pbmc()
-gene_indexes_von_mises, data_cross, _ = data_bcell(K=K)
-for i in range(40):
-   start_cross_valid("hybrid", i, gene_indexes_von_mises, data_cross, K, "k_5_cross_valid_hybrid_bcell_", 1.2)
-
-# running the model with optimal hyperparameters on the three datasets
 
 
-# gene_indexes_von_mises_bcell, _, _, model_data = data_bcell(
+#for i in range(40):
+#   start_cross_valid("hybrid", i, gene_indexes_von_mises, data_cross, K, "k_5_cross_valid_hybrid_bcell_", 1.2)
+
+# running the model with optimal hyperparameters on the three datasets over 5 random seeds
+seeds = [0,10,20,30,40]
+K=5
+gene_indexes_cortex, _, model_data = data_cortex(5)
+data = divide_data(model_data, K)
+results_hybrid = [] 
+results_scVI = []
+for i in range(len(seeds)):
+    results_hybrid.append(cross_valid_hybrid(0.0004, 2, 256, gene_indexes_cortex, data, K, "wilcoxon_results/cross_valid_hybrid_cortex", 0.5, seeds[i]))
+    results_scVI.append(cross_valid_scvi(0.0004, 1, 128, data, K, "wilcoxon_results/cross_valid_scvi_cortex", 0.5, seeds[i]))
+get_wilcoxon_score(K, "wilcoxon_results/cortex_", seeds, results_hybrid, results_scVI)
+
+# gene_indexes_von_mises_bcell, _, _, model_data = data_bcell(K)
 # data_bcell_ = divide_data(model_data, K)
 # results_hybrid_bcell = cross_valid_hybrid(0.0004, 2, 64, gene_indexes_von_mises_bcell, data_bcell_, K, "bcell_final_test_hybridVI_", 1.2)
 # results_scVI_bcell = cross_valid_scvi(0.0003, 1, 128, data_bcell_, K, "bcell_final_test_scvi_", 1.2)
 # print("wilcoxon_score_bcell: ", wilcoxon(x=results_hybrid_bcell, y=results_scVI_bcell))
 
-# gene_indexes_von_mises_cortex, _, model_data = data_cortex()
-# data_cortex_ = divide_data(model_data, K)
-# results_hybrid_cortex = cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data_cortex_, K, "cortex_test_hybridVI_", 0.5)
-# results_scVI_cortex = cross_valid_scvi(0.0004, 1, 128, data_cortex_, K, "cortex_test_scvi_", 0.5)
-# print("wilcoxon_score_cortex: ", wilcoxon(x=results_hybrid_cortex, y=results_scVI_cortex))
+# gene_indexes_von_mises_cortex, data, model_data = data_cortex(5)
+# data_cortex_ = divide_data(data[0], K)
+# for i in range(len(seeds)):
+#     results_hybrid_cortex.append(cross_valid_hybrid(0.0006, 1, 256, gene_indexes_von_mises_cortex, data_cortex_, K, "cortex_test_hybridVI_", 0.5, seeds[i]))
+#     results_scVI_cortex.append(cross_valid_scvi(0.0004, 1, 128, data_cortex_, K, "cortex_test_scvi_", 0.5, seeds[i]))
+
+# print(results_hybrid_cortex)
+# print(results_scVI_cortex)
+
+
 
 # gene_indexes_von_mises_pbmc, _, _, model_data = data_pbmc()
 # data_pbmc_ = divide_data(model_data, K)
