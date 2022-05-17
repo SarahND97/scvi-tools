@@ -156,8 +156,8 @@ def start_cross_valid(model_type ,line_nr, gene_indexes_von_mises, data_cross, K
     f.close()
 
 def data_bcell(K):
-    rna = sc.read_h5ad('data/rawRNA.h5ad')
-    prna = sc.read_h5ad('data/processedRNA.h5ad')
+    rna = sc.read_h5ad('../../filippe/rawRNA.h5ad')
+    prna = sc.read_h5ad('../../filippe/processedRNA.h5ad')
     prna.obs.merged.cat.rename_categories({'CD11C+ MBC': 'ITGAX+ MBC', }, inplace= True)
     # cells with common id
     mdata = mu.MuData({"raw_rna": rna, "processed_rna": prna})
