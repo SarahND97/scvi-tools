@@ -246,7 +246,6 @@ def get_wilcoxon_score(K, filename, seeds, results_hybrid, results_scVI):
     # filename should include path
     f = open(filename + ".txt","a")
     for i in range(len(seeds)):
-        index = 0
         for j in range(K):
             nmi_hybrid[i][j] = results_hybrid[i][j][0]
             ari_hybrid[i][j] = results_hybrid[i][j][1]
@@ -254,7 +253,6 @@ def get_wilcoxon_score(K, filename, seeds, results_hybrid, results_scVI):
             ari_scvi[i][j] = results_scVI[i][j][1]
             average_hybrid[i] += results_hybrid[i][j]
             average_scVI[i] += results_scVI[i][j]
-        index += 2
     average_hybrid /= len(seeds)
     average_scVI /= len(seeds)
     for i in range(len(seeds)):
@@ -294,14 +292,14 @@ def run_wilcoxon_tests():
     results_scVI_bcell = []
     for i in range(len(seeds)):
         # run cross-valid for cortex data
-        results_hybrid_cortex.append(cross_valid_hybrid(0.0004, 2, 256, gene_indexes_cortex, cortex, K, "wilcoxon_results/cross_valid_hybrid_cortex", 0.5, seeds[i]))
+        results_hybrid_cortex.append(cross_valid_hybrid(0.0004, 2, 256, gene_indexes_cortex, cortex, K, "wilcoxon_results/cross_valid_hybrid_cortex_", 0.5, seeds[i]))
         results_scVI_cortex.append(cross_valid_scvi(0.0004, 1, 128, cortex, K, "wilcoxon_results/cross_valid_scvi_cortex", 0.5, seeds[i]))
         # run cross-valid for pbmc data
-        results_hybrid_pbmc.append(cross_valid_hybrid(0.0005, 2, 512, gene_indexes_pbmc, pbmc, K, "wilcoxon_results/cross_valid_hybrid_cortex", 0.5, seeds[i]))
-        results_scVI_pbmc.append(cross_valid_scvi(0.0004, 1, 128, pbmc, K, "wilcoxon_results/cross_valid_scvi_cortex", 0.5, seeds[i]))
+        results_hybrid_pbmc.append(cross_valid_hybrid(0.0005, 2, 512, gene_indexes_pbmc, pbmc, K, "wilcoxon_results/cross_valid_hybrid_pbmc_", 0.5, seeds[i]))
+        results_scVI_pbmc.append(cross_valid_scvi(0.0004, 1, 128, pbmc, K, "wilcoxon_results/cross_valid_scvi_pbmc", 0.5, seeds[i]))
         # run cross-valid for bcell data
-        results_hybrid_bcell.append(cross_valid_hybrid(0.0003, 2, 512, gene_indexes_bcell, bcell, K, "wilcoxon_results/cross_valid_hybrid_cortex", 0.5, seeds[i]))
-        results_scVI_bcell.append(cross_valid_scvi(0.0004, 1, 128, bcell, K, "wilcoxon_results/cross_valid_scvi_cortex", 0.5, seeds[i]))
+        results_hybrid_bcell.append(cross_valid_hybrid(0.0003, 2, 512, gene_indexes_bcell, bcell, K, "wilcoxon_results/cross_valid_hybrid_bcell_", 0.5, seeds[i]))
+        results_scVI_bcell.append(cross_valid_scvi(0.0004, 1, 128, bcell, K, "wilcoxon_results/cross_valid_scvi_bcell_", 0.5, seeds[i]))
     get_wilcoxon_score(K, "wilcoxon_results/cortex_", seeds, results_hybrid_cortex, results_scVI_cortex)
     get_wilcoxon_score(K, "wilcoxon_results/pbmc_", seeds, results_hybrid_pbmc, results_scVI_pbmc)
     get_wilcoxon_score(K, "wilcoxon_results/bcell_", seeds, results_hybrid_bcell, results_scVI_bcell)
